@@ -1,0 +1,41 @@
+version: 2
+updates:
+  # Dependencias npm: PRs semanales contra develop (flujo gitflow).
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    target-branch: develop
+    open-pull-requests-limit: 5
+    groups:
+      dev-menores:
+        dependency-type: development
+        update-types: [minor, patch]
+    # Majors que hoy son incompatibles entre sí — subirlos requiere decisión
+    # manual coordinada, no un PR automático:
+    ignore:
+      # v6 exige vite 8; electron-vite 5 soporta como máximo vite 7.
+      - dependency-name: '@vitejs/plugin-react'
+        update-types: ['version-update:semver-major']
+      # React 19 es una migración deliberada (react + react-dom + types juntos).
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react-dom'
+        update-types: ['version-update:semver-major']
+      # TypeScript 7 (compilador nativo) aún no es compatible con la toolchain.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      # Debe seguir la versión de Node que embebe Electron (43 → Node 24).
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+
+  # Acciones de los workflows (checkout, setup-node, codeql…).
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+    target-branch: develop

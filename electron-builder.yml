@@ -1,0 +1,49 @@
+appId: com.pleamarlabs.marea
+productName: Marea
+copyright: © 2026 Pleamar Labs
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# node-pty resuelve su binario nativo desde `prebuilds/<plataforma>-<arch>/`
+# (N-API, estable entre versiones de Node/Electron). No hay que recompilar
+# desde código fuente: evita necesitar Visual Studio/gcc en la máquina de build.
+npmRebuild: false
+# Los binarios nativos (.node, .dll, .exe de node-pty) deben quedar FUERA del
+# asar para poder cargarse/ejecutarse en tiempo de ejecución.
+asarUnpack:
+  - '**/node_modules/node-pty/**'
+# Nombre de artefacto legible e independiente de la plataforma.
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # Sin icono propio en build/: electron-builder usa el de Electron por defecto.
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Marea
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+linux:
+  # AppImage: universal (funciona en la mayoría de distribuciones).
+  # deb: Ubuntu/Debian y derivados (los más usados).
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  maintainer: Pleamar Labs <angelisaias27112000@gmail.com>
+  category: Development
+  synopsis: Cliente Git de escritorio con grafo de commits interactivo

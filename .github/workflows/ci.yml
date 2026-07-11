@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'fix/**']
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    name: Tipos, tests y build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Los tests de integración crean repos Git reales; se fija la rama
+      # inicial para que no dependa de la versión de git del runner.
+      - name: Configurar git para los tests
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificar tipos
+        run: npm run typecheck
+
+      - name: Tests (unitarios + integración con git real)
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  auditoria:
+    name: Auditoría de dependencias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Falla si hay vulnerabilidades altas/críticas en dependencias
+      # de producción (las que se distribuyen con la app).
+      - name: npm audit (producción)
+        run: npm audit --omit=dev --audit-level=high
