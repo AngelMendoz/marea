@@ -3,6 +3,13 @@ import { join } from 'path'
 import { registerIpc } from './ipc'
 import { disposeAllTerminals } from './terminal'
 
+// En desarrollo se aísla el perfil: la app instalada y `npm run dev` comparten
+// %APPDATA%/Marea, y con las dos abiertas la caché de disco/GPU falla con
+// "Unable to move the cache: Acceso denegado (0x5)".
+if (!app.isPackaged) {
+  app.setPath('userData', `${app.getPath('userData')}-dev`)
+}
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1380,
