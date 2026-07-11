@@ -1,10 +1,10 @@
-import { Waypoints, GitPullRequest, Settings, CheckCircle2 } from 'lucide-react'
+import { Waypoints, GitPullRequest } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePRPanel } from '../prPanel'
 import { useStore } from '../store'
 
 export function MergeTargetButton(): JSX.Element | null {
-  const { repo, branches, status, notify } = useStore()
+  const { repo, branches, status } = useStore()
   const openPanel = usePRPanel((s) => s.openPanel)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -36,10 +36,6 @@ export function MergeTargetButton(): JSX.Element | null {
       </button>
       {open && (
         <div className="mt-pop">
-          <div className="mt-status">
-            <CheckCircle2 size={16} color="var(--accent-green)" />
-            Al día con el objetivo de merge
-          </div>
           <p className="mt-desc">
             Tu rama <span className="mt-branch">{current}</span> se compara con{' '}
             <span className="mt-branch target">{target || '(sin objetivo)'}</span>.
@@ -53,15 +49,6 @@ export function MergeTargetButton(): JSX.Element | null {
             }}
           >
             <GitPullRequest size={15} /> Abrir un Pull Request hacia {target || '…'}
-          </button>
-          <button
-            className="mt-action"
-            onClick={() => {
-              notify('info', 'Configurar ramas objetivo: pendiente')
-              setOpen(false)
-            }}
-          >
-            <Settings size={15} /> Configurar ramas objetivo
           </button>
         </div>
       )}

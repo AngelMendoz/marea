@@ -11,6 +11,61 @@ Navega tu historial de Git.
 > 📖 **¿Vas a usar Marea?** Lee el **[Manual de usuario](MANUAL-USUARIO.md)**:
 > guía paso a paso, con capturas, desde la instalación hasta cada funcionalidad.
 
+## Descargas
+
+Instaladores de la última versión (**v0.2.1**), publicados en la página de
+[**Releases**](https://github.com/AngelMendoz/marea/releases):
+
+| Plataforma | Descarga |
+|---|---|
+| **Windows 10/11** (x64) | [`Marea-0.2.1-win-x64.exe`](https://github.com/AngelMendoz/marea/releases/download/v0.2.1/Marea-0.2.1-win-x64.exe) — instalador |
+| **Linux** (cualquier distro, x64) | [`Marea-0.2.1-linux-x86_64.AppImage`](https://github.com/AngelMendoz/marea/releases/download/v0.2.1/Marea-0.2.1-linux-x86_64.AppImage) — portable |
+| **Ubuntu / Debian** | [`Marea-0.2.1-linux-amd64.deb`](https://github.com/AngelMendoz/marea/releases/download/v0.2.1/Marea-0.2.1-linux-amd64.deb) — paquete |
+| **macOS** | Sin instalador por ahora (requiere compilarse en un Mac) — [ejecutar desde el código](#cómo-ejecutar) |
+
+> Marea necesita **Git instalado** en el sistema. Los pasos de instalación
+> detallados (incluido el aviso de SmartScreen en Windows) están en el
+> [manual, sección 3](MANUAL-USUARIO.md#3-instalación).
+
+## Un vistazo
+
+La **ventana principal**: grafo de commits interactivo con avatares por autor,
+panel de cambios para preparar y confirmar, y barra lateral con ramas, remotos,
+tags, stashes, PRs, issues, submódulos y worktrees:
+
+![Ventana principal de Marea](manual-usuario/img/01-ventana-general.png)
+
+**Pull Requests de GitHub** sin salir de la app: crear (con reviewers,
+assignees y labels), revisar con diff por archivo, comentar en línea, aprobar
+y hacer merge:
+
+![Crear Pull Request](manual-usuario/img/121-pr-crear.png)
+
+**Editor visual de conflictos** a tres zonas: eliges línea a línea qué
+conservar de cada lado y editas la salida final:
+
+![Editor de conflictos](manual-usuario/img/51-editor-conflictos.png)
+
+**Tema claro u oscuro**, zoom, paneles ocultables y atajos reasignables:
+
+![Tema claro](manual-usuario/img/230-tema-claro.png)
+
+## Primeros pasos (resumen del manual)
+
+1. **Instala** Marea con el instalador de tu plataforma (tabla de arriba).
+2. Al abrirla verás la **pantalla de bienvenida**: elige **Abrir repositorio**
+   (una carpeta que ya tienes), **Clonar** (descargar uno desde GitHub u otro
+   servidor) o **Inicializar** (convertir una carpeta en repositorio).
+3. El **grafo** central muestra tu historial; la primera fila, «Cambios sin
+   confirmar», es tu trabajo actual. Desde el panel derecho preparas archivos
+   y escribes el mensaje para **Confirmar** (hacer commit).
+4. Con **Fetch / Pull / Push** de la barra de herramientas sincronizas con el
+   servidor.
+
+> 📖 La explicación completa de **todas** las funcionalidades — con una captura
+> por paso, preguntas frecuentes y glosario — está en el
+> **[Manual de usuario](MANUAL-USUARIO.md)**.
+
 ## Stack
 
 - **Electron** — app de escritorio nativa (acceso a filesystem, git, SSH…).

@@ -1,4 +1,4 @@
-import { GitPullRequest, X, ArrowRight, ExternalLink, Sparkles } from 'lucide-react'
+import { GitPullRequest, X, ArrowRight, ExternalLink } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { GhLabel } from '@shared/types'
 import { bridge } from '../bridge'
@@ -10,12 +10,6 @@ const PROVIDERS = [
   { id: 'gitlab', name: 'GitLab', enabled: false },
   { id: 'bitbucket', name: 'Bitbucket', enabled: false }
 ]
-
-function prettify(branch: string): string {
-  const last = branch.split('/').pop() || branch
-  const s = last.replace(/[-_]+/g, ' ').trim()
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
 
 export function CreatePR(): JSX.Element | null {
   const { open, head, base, close } = usePRPanel()
@@ -70,11 +64,6 @@ export function CreatePR(): JSX.Element | null {
 
   const toggle = (list: string[], set: (v: string[]) => void, v: string): void =>
     set(list.includes(v) ? list.filter((x) => x !== v) : [...list, v])
-
-  const generate = (): void => {
-    setTitle(prettify(fromBranch))
-    setDescription(`## Cambios\n\n- \n\n## Notas\n\nPR de \`${fromBranch}\` → \`${toBranch}\`.`)
-  }
 
   const continueOnGitHub = (): void => {
     if (!ownerRepo) return
@@ -172,12 +161,7 @@ export function CreatePR(): JSX.Element | null {
           </div>
 
           <label className="pr-field">
-            <span className="pr-label-row">
-              Título
-              <button className="mini" onClick={generate} title="Generar título y descripción">
-                <Sparkles size={13} /> Generar
-              </button>
-            </span>
+            Título
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título del pull request" />
           </label>
 
