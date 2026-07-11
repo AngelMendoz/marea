@@ -8,8 +8,6 @@ import {
   Archive,
   PackageOpen,
   Sun,
-  Undo2,
-  Redo2,
   FolderGit2,
   Settings,
   TerminalSquare,
@@ -40,7 +38,6 @@ export function Toolbar(): JSX.Element {
   const theme = useStore((s) => s.theme)
   const busy = useStore((s) => s.busy)
   const toggleTheme = useStore((s) => s.toggleTheme)
-  const notify = useStore((s) => s.notify)
   const pullMode = useSettings((s) => s.pullMode)
   const { openConfirm } = useDialog()
   const openMenu = useContextMenu((s) => s.openMenu)
@@ -131,17 +128,6 @@ export function Toolbar(): JSX.Element {
       </div>
 
       <MergeTargetButton />
-
-      <div className="tool-divider" />
-
-      <button className="tool-btn" title="Deshacer" onClick={() => notify('info', 'Undo: pendiente (Fase 6)')}>
-        <Undo2 />
-        <span className="tb-label">Deshacer</span>
-      </button>
-      <button className="tool-btn" title="Rehacer" onClick={() => notify('info', 'Redo: pendiente (Fase 6)')}>
-        <Redo2 />
-        <span className="tb-label">Rehacer</span>
-      </button>
 
       <div className="tool-divider" />
 
