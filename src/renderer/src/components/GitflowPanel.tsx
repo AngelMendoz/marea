@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import type { GitflowConfig, GitflowType } from '@shared/types'
 import { bridge } from '../bridge'
 import { useDialog } from '../dialog'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 
 interface GitflowPanelState {
@@ -31,6 +32,7 @@ export function GitflowPanel(): JSX.Element | null {
   const branches = useStore((s) => s.branches)
   const run = useStore((s) => s.run)
   const { openConfirm, openPrompt } = useDialog()
+  const layer = useModalLayer(open)
 
   const [cfg, setCfg] = useState<GitflowConfig | null>(null)
   const [draft, setDraft] = useState<GitflowConfig | null>(null)
@@ -115,7 +117,7 @@ export function GitflowPanel(): JSX.Element | null {
   const patch = (p: Partial<GitflowConfig>): void => setDraft((d) => (d ? { ...d, ...p } : d))
 
   return (
-    <div className="pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="pr-panel gf-panel">
         <div className="pr-head">
           <Workflow size={16} color="var(--accent)" />

@@ -5,6 +5,7 @@ import type { GhLabel } from '@shared/types'
 import { bridge } from '../bridge'
 import { useCenterView } from '../centerView'
 import { useIssueList } from '../issueList'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 
 interface CreateIssuePanelState {
@@ -23,6 +24,7 @@ export function CreateIssue(): JSX.Element | null {
   const { open, close } = useCreateIssuePanel()
   const { repo, notify } = useStore()
   const openIssue = useCenterView((s) => s.openIssue)
+  const layer = useModalLayer(open)
 
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
@@ -73,7 +75,7 @@ export function CreateIssue(): JSX.Element | null {
   }
 
   return (
-    <div className="pr-overlay" onMouseDown={close}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={close}>
       <div className="pr-panel" onMouseDown={(e) => e.stopPropagation()}>
         <div className="pr-head">
           <CircleDot size={17} color="var(--accent-green)" />

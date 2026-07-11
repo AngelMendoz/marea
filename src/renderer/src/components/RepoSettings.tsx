@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { create } from 'zustand'
 import type { GpgKey, HooksInfo } from '@shared/types'
 import { bridge } from '../bridge'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 
 interface RepoSettingsState {
@@ -33,6 +34,7 @@ export function RepoSettings(): JSX.Element | null {
   const close = useRepoSettings((s) => s.close)
   const repo = useStore((s) => s.repo)
   const run = useStore((s) => s.run)
+  const layer = useModalLayer(open)
 
   const [cfg, setCfg] = useState<Record<string, string> | null>(null)
   const [gpgKeys, setGpgKeys] = useState<GpgKey[]>([])
@@ -99,7 +101,7 @@ export function RepoSettings(): JSX.Element | null {
   }
 
   return (
-    <div className="pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="pr-panel rs-panel">
         <div className="pr-head">
           <Settings size={16} color="var(--accent)" />

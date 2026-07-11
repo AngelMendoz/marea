@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { bridge } from '../bridge'
 import { useDialog } from '../dialog'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 import { activeWorkspace, useWorkspaces, withLimit } from '../workspaces'
 
@@ -46,6 +47,7 @@ export function WorkspacesPanel(): JSX.Element | null {
   const openRepo = useStore((s) => s.openRepo)
   const tabs = useStore((s) => s.tabs)
   const { openPrompt, openConfirm } = useDialog()
+  const layer = useModalLayer(open)
 
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [batch, setBatch] = useState<Record<string, BatchState>>({})
@@ -205,7 +207,7 @@ export function WorkspacesPanel(): JSX.Element | null {
   }
 
   return (
-    <div className="pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="pr-panel ws-panel">
         <div className="pr-head">
           <LayoutGrid size={16} color="var(--accent)" />

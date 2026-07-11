@@ -22,6 +22,7 @@ import {
   ZOOM_LEVELS,
   type ShortcutAction
 } from '../settings'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 import { useRepoSettings } from './RepoSettings'
 
@@ -43,6 +44,7 @@ export function Settings(): JSX.Element | null {
   const open = useSettings((s) => s.open)
   const closePanel = useSettings((s) => s.closePanel)
   const [tab, setTab] = useState<Tab>('general')
+  const layer = useModalLayer(open)
 
   useEffect(() => {
     if (open) setTab('general')
@@ -51,7 +53,7 @@ export function Settings(): JSX.Element | null {
   if (!open) return null
 
   return (
-    <div className="pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && closePanel()}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={(e) => e.target === e.currentTarget && closePanel()}>
       <div className="pr-panel st-panel">
         <div className="pr-head">
           <Settings2 size={16} color="var(--accent)" />

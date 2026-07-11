@@ -22,6 +22,7 @@ import { bridge } from '../bridge'
 import { useCenterView } from '../centerView'
 import { useContextMenu } from '../contextMenu'
 import { useDialog } from '../dialog'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 import { activeWorkspace, useWorkspaces } from '../workspaces'
 
@@ -100,6 +101,7 @@ export function Activity(): JSX.Element | null {
   const loadWs = useWorkspaces((s) => s.load)
   const openMenu = useContextMenu((s) => s.openMenu)
   const { openPrompt } = useDialog()
+  const layer = useModalLayer(open)
 
   const [data, setData] = useState<ActivityData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -270,7 +272,7 @@ export function Activity(): JSX.Element | null {
     )
 
   return (
-    <div className="pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="pr-panel act-panel">
         <div className="pr-head">
           <ActivityIcon size={16} color="var(--accent)" />
