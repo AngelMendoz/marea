@@ -97,9 +97,12 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
 
 ## 3. Instalación
 
+> Todos los instaladores se descargan desde la página de
+> **[Releases](https://github.com/AngelMendoz/marea/releases)** del proyecto.
+
 ### Windows (instalador `.exe`)
 
-1. Descarga el archivo **`Marea-0.2.0-win-x64.exe`**.
+1. Descarga el archivo **`Marea-0.2.1-win-x64.exe`**.
 2. Haz **doble clic** sobre él.
 3. Si Windows muestra un aviso de seguridad («Windows protegió tu PC»), pulsa
    **«Más información»** y luego **«Ejecutar de todas formas»** (esto aparece
@@ -112,23 +115,22 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
 ### Linux (AppImage o `.deb`)
 
 - **AppImage** (funciona en casi cualquier distribución):
-  1. Descarga **`Marea-0.2.0-linux-x86_64.AppImage`**.
+  1. Descarga **`Marea-0.2.1-linux-x86_64.AppImage`**.
   2. Dale permiso de ejecución: clic derecho → *Propiedades* → *Permisos* →
      marca **«Permitir ejecutar como programa»** (o en terminal:
-     `chmod +x Marea-0.2.0-linux-x86_64.AppImage`).
+     `chmod +x Marea-0.2.1-linux-x86_64.AppImage`).
   3. **Doble clic** para abrirlo.
 - **Paquete `.deb`** (Ubuntu/Debian):
-  1. Descarga **`Marea-0.2.0-linux-amd64.deb`**.
+  1. Descarga **`Marea-0.2.1-linux-amd64.deb`**.
   2. Ábrelo con el instalador de aplicaciones, o en terminal:
-     `sudo dpkg -i Marea-0.2.0-linux-amd64.deb`.
+     `sudo dpkg -i Marea-0.2.1-linux-amd64.deb`.
   3. Búscalo luego en tu menú de aplicaciones como **Marea**.
 
-### macOS (`.dmg`)
+### macOS (desde el código)
 
-1. Abre el archivo **`.dmg`**.
-2. Arrastra **Marea** a la carpeta **Aplicaciones**.
-3. La primera vez, ábrelo con **clic derecho → Abrir** para saltar el aviso de
-   seguridad de macOS.
+Todavía **no publicamos un instalador para macOS** (generarlo requiere un equipo
+Mac). Mientras tanto, puedes ejecutar Marea desde el código fuente — ver el
+apartado siguiente; funciona igual en macOS.
 
 ### Ejecutar desde el código (para desarrolladores)
 
@@ -238,7 +240,6 @@ De izquierda a derecha:
 
 - **marea · main**: nombre del repo y rama actual.
 - Botón de **objetivo de merge** (icono de ramas) — ver [sección 11](#11-ramas).
-- **Deshacer / Rehacer** *(reservado para una versión futura)*.
 - **Fetch** · **Pull** · **Push**: sincronizar con el servidor (sección 12).
 - **Rama**: crear una rama nueva.
 - **Gitflow**: flujo de features/releases/hotfixes (sección 25).
@@ -468,8 +469,7 @@ respecto a su rama **objetivo** (por ejemplo, `develop`):
 
 ![Objetivo de merge](manual-usuario/img/63-merge-target.png)
 
-Desde ahí puedes **abrir un Pull Request** hacia esa rama o **configurar** cuál
-es la rama objetivo.
+Desde ahí puedes **abrir un Pull Request** hacia esa rama con un clic.
 
 ---
 
@@ -741,8 +741,7 @@ Pull Request**.
 
 1. Elige el proveedor (**GitHub**).
 2. Revisa **From** (tu rama) y **To** (la rama destino).
-3. Escribe un **Título** (o pulsa **Generar** para proponer uno) y una
-   **Descripción**.
+3. Escribe un **Título** y una **Descripción**.
 4. Opcional: añade **Reviewers**, **Assignees** y **Labels**; marca **borrador
    (draft)** si aún no está listo.
 5. Pulsa el botón de crear. El PR se publica en GitHub.
@@ -1003,9 +1002,6 @@ pidiera iniciar sesión. También puedes conectar una cuenta con token en
 Instala Git (sección 2) y asegúrate de que está en el `PATH`. Si tienes varias
 versiones, puedes indicar la ruta exacta del ejecutable en *Ajustes → Git →
 Ejecutable Git*.
-
-**Los botones «Deshacer» y «Rehacer» no hacen nada.**
-Están **reservados para una versión futura**; de momento no realizan la acción.
 
 **Hice algo sin querer, ¿puedo volver atrás?**
 Casi siempre sí. Para deshacer un commit sin perder trabajo usa **Revert**; para
