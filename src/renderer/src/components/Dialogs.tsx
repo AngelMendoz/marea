@@ -8,7 +8,7 @@ const overlay: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 2000
+  zIndex: 4000
 }
 
 export function Dialogs(): JSX.Element | null {

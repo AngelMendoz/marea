@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { create } from 'zustand'
 import type { Commit, RebaseAction, RebasePlanItem } from '@shared/types'
 import { bridge } from '../bridge'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 
 interface RebasePanelState {
@@ -58,6 +59,7 @@ export function InteractiveRebase(): JSX.Element | null {
   const repo = useStore((s) => s.repo)
   const run = useStore((s) => s.run)
   const notify = useStore((s) => s.notify)
+  const layer = useModalLayer(open)
 
   const [rows, setRows] = useState<PlanRow[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -129,7 +131,7 @@ export function InteractiveRebase(): JSX.Element | null {
   }
 
   return (
-    <div className="pr-overlay" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div className="pr-panel ir-panel">
         <div className="pr-head">
           <ListOrdered size={16} color="var(--accent)" />

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { GhLabel } from '@shared/types'
 import { bridge } from '../bridge'
 import { usePRPanel } from '../prPanel'
+import { useModalLayer } from '../lib/modalLayer'
 import { useStore } from '../store'
 
 const PROVIDERS = [
@@ -14,6 +15,7 @@ const PROVIDERS = [
 export function CreatePR(): JSX.Element | null {
   const { open, head, base, close } = usePRPanel()
   const { repo, branches, notify } = useStore()
+  const layer = useModalLayer(open)
 
   const localNames = useMemo(() => branches?.local.map((b) => b.name) ?? [], [branches])
   const baseNames = useMemo(() => {
@@ -98,7 +100,7 @@ export function CreatePR(): JSX.Element | null {
   }
 
   return (
-    <div className="pr-overlay" onMouseDown={close}>
+    <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={close}>
       <div className="pr-panel" onMouseDown={(e) => e.stopPropagation()}>
         <div className="pr-head">
           <GitPullRequest size={17} color="var(--accent)" />
