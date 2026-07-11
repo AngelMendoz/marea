@@ -29,7 +29,7 @@
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^1.24.0",
     "node-pty": "^1.1.0",
     "simple-git": "^3.27.0",
     "zustand": "^5.0.1"
