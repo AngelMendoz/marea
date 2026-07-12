@@ -27,6 +27,10 @@ Instaladores de la última versión (**v0.2.1**), publicados en la página de
 > detallados (incluido el aviso de SmartScreen en Windows) están en el
 > [manual, sección 3](MANUAL-USUARIO.md#3-instalación).
 
+> **Linux:** si el AppImage no abre por un error de FUSE, instala `libfuse2`
+> con `sudo apt install libfuse2` (en versiones recientes de Ubuntu/Debian el
+> paquete se llama `libfuse2t64`). El paquete `.deb` no lo necesita.
+
 ## Un vistazo
 
 La **ventana principal**: grafo de commits interactivo con avatares por autor,

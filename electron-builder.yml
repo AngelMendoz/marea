@@ -8,7 +8,10 @@ files:
   - out/**/*
   - package.json
 # Recompila los módulos nativos contra Electron para evitar binarios inválidos
-# al generar AppImage/deb en Linux.
+# al generar AppImage/deb en Linux (node-pty no trae prebuild linux-x64).
+# En Windows NO hace falta (node-pty sí trae prebuilds win32) y además exigiría
+# Visual Studio: el empaquetado de Windows se lanza con
+#   npx electron-builder --win --x64 -c.npmRebuild=false
 npmRebuild: true
 # Los binarios nativos (.node, .dll, .exe de node-pty) deben quedar FUERA del
 # asar para poder cargarse/ejecutarse en tiempo de ejecución.
@@ -21,7 +24,7 @@ win:
     - target: nsis
       arch:
         - x64
-  # Sin icono propio en build/: electron-builder usa el de Electron por defecto.
+  # Icono del instalador y del exe: build/icon.ico (ubicacion por defecto).
 nsis:
   oneClick: false
   perMachine: false

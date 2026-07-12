@@ -120,8 +120,8 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
      marca **«Permitir ejecutar como programa»** (o en terminal:
      `chmod +x Marea-0.2.1-linux-x86_64.AppImage`).
   3. Si tu sistema muestra un error de FUSE al abrirlo, instala la librería
-    `libfuse2` (en algunas versiones nuevas de Ubuntu/Debian, `libfuse2t64`):
-    `sudo apt install libfuse2`.
+     `libfuse2` (en algunas versiones nuevas de Ubuntu/Debian, `libfuse2t64`):
+     `sudo apt install libfuse2`.
   4. **Doble clic** para abrirlo.
 - **Paquete `.deb`** (Ubuntu/Debian):
   1. Descarga **`Marea-0.2.1-linux-amd64.deb`**.
