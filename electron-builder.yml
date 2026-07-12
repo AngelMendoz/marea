@@ -34,7 +34,7 @@ mac:
     - dmg
   category: public.app-category.developer-tools
 linux:
-  icon: build/icons
+  icon: assets/icons/linux
   syncDesktopName: true
   # AppImage: universal (funciona en la mayoría de distribuciones).
   # deb: Ubuntu/Debian y derivados (los más usados).
