@@ -119,12 +119,19 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
   2. Dale permiso de ejecución: clic derecho → *Propiedades* → *Permisos* →
      marca **«Permitir ejecutar como programa»** (o en terminal:
      `chmod +x Marea-0.2.1-linux-x86_64.AppImage`).
-  3. **Doble clic** para abrirlo.
+  3. Si tu sistema muestra un error de FUSE al abrirlo, instala la librería
+    `libfuse2` (en algunas versiones nuevas de Ubuntu/Debian, `libfuse2t64`):
+    `sudo apt install libfuse2`.
+  4. **Doble clic** para abrirlo.
 - **Paquete `.deb`** (Ubuntu/Debian):
   1. Descarga **`Marea-0.2.1-linux-amd64.deb`**.
   2. Ábrelo con el instalador de aplicaciones, o en terminal:
      `sudo dpkg -i Marea-0.2.1-linux-amd64.deb`.
   3. Búscalo luego en tu menú de aplicaciones como **Marea**.
+
+> En Linux puedes ver avisos de arranque como mensajes de GTK, Wayland o
+> `DeprecationWarning`. Si la ventana abre y la app funciona, esos mensajes no
+> suelen impedir el uso normal.
 
 ### macOS (desde el código)
 
@@ -1002,6 +1009,16 @@ pidiera iniciar sesión. También puedes conectar una cuenta con token en
 Instala Git (sección 2) y asegúrate de que está en el `PATH`. Si tienes varias
 versiones, puedes indicar la ruta exacta del ejecutable en *Ajustes → Git →
 Ejecutable Git*.
+
+**El AppImage no abre y dice `dlopen(): error loading libfuse.so.2`.**
+Instala la librería FUSE 2 con `sudo apt install libfuse2`. En algunas
+versiones recientes de Ubuntu/Debian el paquete puede llamarse `libfuse2t64`.
+Después vuelve a ejecutar el archivo `.AppImage`.
+
+**Al abrir el AppImage aparecen avisos de GTK, Wayland o `DeprecationWarning`.**
+Suelen ser mensajes del entorno gráfico o del runtime de Electron, no errores
+fatales. Si la interfaz termina abriéndose, puedes continuar trabajando con la
+app con normalidad.
 
 **Hice algo sin querer, ¿puedo volver atrás?**
 Casi siempre sí. Para deshacer un commit sin perder trabajo usa **Revert**; para

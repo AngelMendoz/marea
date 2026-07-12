@@ -7,10 +7,9 @@ directories:
 files:
   - out/**/*
   - package.json
-# node-pty resuelve su binario nativo desde `prebuilds/<plataforma>-<arch>/`
-# (N-API, estable entre versiones de Node/Electron). No hay que recompilar
-# desde código fuente: evita necesitar Visual Studio/gcc en la máquina de build.
-npmRebuild: false
+# Recompila los módulos nativos contra Electron para evitar binarios inválidos
+# al generar AppImage/deb en Linux.
+npmRebuild: true
 # Los binarios nativos (.node, .dll, .exe de node-pty) deben quedar FUERA del
 # asar para poder cargarse/ejecutarse en tiempo de ejecución.
 asarUnpack:
@@ -35,6 +34,7 @@ mac:
     - dmg
   category: public.app-category.developer-tools
 linux:
+  syncDesktopName: true
   # AppImage: universal (funciona en la mayoría de distribuciones).
   # deb: Ubuntu/Debian y derivados (los más usados).
   target:
