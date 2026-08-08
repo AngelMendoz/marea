@@ -1,0 +1,4 @@
+- Mover las pestañas, cuando se abre una pestaña con un nuevo proyecto no se puede cambiar su posición, por ejemplo, si quiero reorganizar las pestañas no se puede hacer nada.
+- Vista previa de imágenes y pdfs
+- Mejora en el manejo de archivos binarios o de cualquier formato, por ejemplo, xlsx, docx, pdfs, porque normalmente se traba o pone lento con estos archivos, aunque en la mayoría no se pueda mostrar una vista previa, al menos que mejore el rendimiento en su manejo.
+- Mejora en el rendimiento de archivos muy muy grandes, porque cuando estos archivos se ponen en el programa, se pone extremadamente lento, sé que llevará un tiempo por ser pesados, pero se tarda demasiado, se debe optimizar.
