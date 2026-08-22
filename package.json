@@ -33,7 +33,7 @@
     "lucide-react": "^1.24.0",
     "node-pty": "^1.1.0",
     "simple-git": "^3.27.0",
-    "zustand": "^5.0.1"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/node": "^20.16.0",
