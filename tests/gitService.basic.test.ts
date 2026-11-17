@@ -95,6 +95,20 @@ describe('commit y amend', () => {
     expect(subjects).toEqual(['mensaje corregido'])
     expect(raw(repo, ['show', 'HEAD:a.txt'])).toBe('2')
   })
+
+  it('headMessage y amend solo del mensaje (no incluye lo preparado)', async () => {
+    const repo = await newRepo()
+    await commitFile(repo, 'a.txt', '1', 'resumen viejo\n\ncuerpo')
+    expect(await gitService.headMessage(repo)).toBe('resumen viejo\n\ncuerpo')
+
+    write(repo, 'a.txt', '2')
+    await gitService.stage(repo, ['a.txt'])
+    await gitService.commit(repo, 'resumen nuevo\n\ncuerpo', { amend: true, messageOnly: true })
+
+    expect(await gitService.headMessage(repo)).toBe('resumen nuevo\n\ncuerpo')
+    expect(raw(repo, ['show', 'HEAD:a.txt'])).toBe('1')
+    expect(raw(repo, ['diff', '--cached', '--name-only']).trim()).toBe('a.txt')
+  })
 })
 
 describe('logPage', () => {

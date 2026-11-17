@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { bisectCulprit } from '../src/shared/bisect'
 import { commitFile, gitService, newRepo, raw } from './helpers'
 
 /** Repo con rama base 'main' garantizada (independiente del init.defaultBranch). */
@@ -93,9 +94,9 @@ describe('git bisect', () => {
     for (let i = 0; i < 10; i++) {
       const hasBug = raw(repo, ['ls-files']).includes('bug.txt')
       result = await gitService.bisectMark(repo, hasBug ? 'bad' : 'good')
-      if (result.includes('is the first bad commit')) break
+      if (bisectCulprit(result)) break
     }
-    expect(result).toContain('is the first bad commit')
+    expect(bisectCulprit(result)).toBeTruthy()
     expect(result).toContain('c3 introduce bug')
 
     await gitService.bisectReset(repo)

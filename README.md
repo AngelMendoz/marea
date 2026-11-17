@@ -13,15 +13,14 @@ Navega tu historial de Git.
 
 ## Descargas
 
-Instaladores de la última versión (**v0.2.1**), publicados en la página de
+Instaladores de la última versión (**v0.2.2**), publicados en la página de
 [**Releases**](https://github.com/AngelMendoz/marea/releases):
 
 | Plataforma | Descarga |
 |---|---|
-| **Windows 10/11** (x64) | [`Marea-0.2.1-win-x64.exe`](https://github.com/AngelMendoz/marea/releases/download/v0.2.1/Marea-0.2.1-win-x64.exe) — instalador |
-| **Linux** (cualquier distro, x64) | [`Marea-0.2.1-linux-x86_64.AppImage`](https://github.com/AngelMendoz/marea/releases/download/v0.2.1/Marea-0.2.1-linux-x86_64.AppImage) — portable |
-| **Ubuntu / Debian** | [`Marea-0.2.1-linux-amd64.deb`](https://github.com/AngelMendoz/marea/releases/download/v0.2.1/Marea-0.2.1-linux-amd64.deb) — paquete |
-| **macOS** | Sin instalador por ahora (requiere compilarse en un Mac) — [ejecutar desde el código](#cómo-ejecutar) |
+| **Windows 10/11** (x64) | [`Marea-0.2.2-win-x64.exe`](https://github.com/AngelMendoz/marea/releases/download/v0.2.2/Marea-0.2.2-win-x64.exe) — instalador |
+| **Linux** (cualquier distro, x64) | [`Marea-0.2.2-linux-x86_64.AppImage`](https://github.com/AngelMendoz/marea/releases/download/v0.2.2/Marea-0.2.2-linux-x86_64.AppImage) — portable |
+| **Ubuntu / Debian** | [`Marea-0.2.2-linux-amd64.deb`](https://github.com/AngelMendoz/marea/releases/download/v0.2.2/Marea-0.2.2-linux-amd64.deb) — paquete |
 
 > Marea necesita **Git instalado** en el sistema. Los pasos de instalación
 > detallados (incluido el aviso de SmartScreen en Windows) están en el
@@ -129,23 +128,33 @@ npm test
 # Compilar
 npm run build
 
-# Empaquetar instalador (Windows/.exe, macOS/.dmg, Linux/AppImage+deb)
+# Empaquetar instalador de Windows (.exe)
 npm run dist
+
+# Linux (.deb + AppImage): dentro de Linux, recompilando node-pty
+# (ver notas-compilacion/PASOS-EXACTOS-DEB-APPIMAGE-UBUNTU.md)
+npx electron-builder --linux -c.npmRebuild=true
 ```
 
 ## Funcionalidades
 
 - **Repos**: abrir, inicializar, clonar, recientes, pestañas persistentes,
-  workspaces (lotes fetch/pull/abrir).
+  workspaces (lotes fetch/pull/abrir), pestañas reordenables con drag & drop.
 - **Grafo de commits** interactivo y virtualizado: carriles por rama, merges,
   tags/ramas como chips, avatares de autor, búsqueda y filtros, zoom,
   multi-selección, scroll infinito.
 - **Cambios (WIP)**: stage / unstage / descartar por archivo, **por hunk y por
-  línea**, commit, amend, plantillas de mensaje, `--no-verify`.
+  línea**, commit, amend (con aviso y force push si el commit ya estaba
+  subido), reescribir el mensaje del último commit, plantillas de mensaje,
+  `--no-verify`, borrador del mensaje por repositorio.
 - **Diff viewer**: números de línea, hunks, resaltado; historial de archivo
-  (`--follow`), **blame** y restaurar versiones anteriores.
+  (`--follow`), **blame** y restaurar versiones anteriores. Renderizado
+  progresivo para archivos de decenas de miles de líneas.
+- **Vista previa** de imágenes (antes/después) y PDF; los binarios (Office,
+  ZIP, ejecutables…) no se cargan como texto y se abren con su aplicación.
 - **Comparaciones**: entre ramas/refs arbitrarias con diff por archivo.
-- **Ramas**: crear, checkout, renombrar, eliminar, merge, rebase,
+- **Ramas**: crear, checkout, renombrar, eliminar (también la actual y su
+  copia en el remoto), merge, rebase,
   ahead/behind; **rebase interactivo visual** (reordenar con drag & drop,
   pick/reword/squash/fixup/drop).
 - **Conflictos**: editor visual a 3 zonas (elegir por hunk/línea, salida

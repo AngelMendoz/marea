@@ -27,6 +27,42 @@ describe('ramas', () => {
     expect(list.local.some((b) => b.name === 'feat2')).toBe(false)
   })
 
+  it('elimina la rama actual (creada por error) y su copia en el remoto', async () => {
+    const repo = await newRepo()
+    const bare = await newBare()
+    await commitFile(repo, 'a.txt', '1', 'init')
+    const main = (await gitService.branches(repo)).current
+    await gitService.addRemote(repo, 'origin', bare)
+    await gitService.push(repo, { setUpstream: true, remote: 'origin' })
+
+    await gitService.createBranch(repo, 'por-error', { checkout: true })
+    await gitService.push(repo, { setUpstream: true, remote: 'origin' })
+    expect(raw(bare, ['branch', '--list', 'por-error']).trim()).not.toBe('')
+
+    const target = await gitService.fallbackBranch(repo, 'por-error')
+    expect(target).toBe(main)
+    await gitService.deleteBranch(repo, 'por-error', true, { switchTo: target, deleteUpstream: true })
+
+    const list = await gitService.branches(repo)
+    expect(list.current).toBe(main)
+    expect(list.local.some((b) => b.name === 'por-error')).toBe(false)
+    expect(raw(bare, ['branch', '--list', 'por-error']).trim()).toBe('')
+  })
+
+  it('deleteUpstream no falla si la rama ya no existe en el remoto', async () => {
+    const repo = await newRepo()
+    const bare = await newBare()
+    await commitFile(repo, 'a.txt', '1', 'init')
+    const main = (await gitService.branches(repo)).current
+    await gitService.addRemote(repo, 'origin', bare)
+    await gitService.createBranch(repo, 'tmp', { checkout: true })
+    await gitService.push(repo, { setUpstream: true, remote: 'origin' })
+    raw(bare, ['branch', '-D', 'tmp'])
+
+    await gitService.deleteBranch(repo, 'tmp', true, { switchTo: main, deleteUpstream: true })
+    expect((await gitService.branches(repo)).local.some((b) => b.name === 'tmp')).toBe(false)
+  })
+
   it('createBranch desde un start point concreto', async () => {
     const repo = await newRepo()
     const first = await commitFile(repo, 'a.txt', '1', 'c1')

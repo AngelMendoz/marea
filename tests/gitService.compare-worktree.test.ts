@@ -55,6 +55,29 @@ describe('comparaciones y file history', () => {
     expect(blame[0].text).toBe('linea A')
   })
 
+  it('blame reutiliza los datos de un commit en bloques no contiguos', async () => {
+    const repo = await newRepo()
+    await commitFile(repo, 'f.txt', 'a1\na2\na3\na4\n', 'base')
+    // Cambia solo la línea central: el commit base queda en dos bloques
+    // separados (en --porcelain sus datos solo se emiten la primera vez).
+    await commitFile(repo, 'f.txt', 'a1\nB2\nB3\na4\n', 'medio')
+    write(repo, 'f.txt', 'a1\nB2\nB3\na4\nñandú\n') // línea sin commitear (UTF-8)
+
+    const blame = await gitService.blame(repo, 'f.txt')
+    expect(blame.map((l) => l.text)).toEqual(['a1', 'B2', 'B3', 'a4', 'ñandú'])
+    expect(blame.map((l) => l.lineNo)).toEqual([1, 2, 3, 4, 5])
+    expect(blame.map((l) => l.summary)).toEqual(['base', 'medio', 'medio', 'base', 'Version of f.txt from f.txt'])
+    expect(blame[0].hash).toBe(blame[3].hash)
+    expect(blame[3].author).toBe('Test User')
+    expect(blame[3].date).toBeGreaterThan(0)
+    expect(blame[4].hash).toBe('0000000000000000000000000000000000000000')
+
+    // Mismo resultado que --line-porcelain (todos los datos en cada línea).
+    const full = raw(repo, ['blame', '--line-porcelain', '--', 'f.txt'])
+    const summaries = full.split('\n').filter((l) => l.startsWith('summary ')).map((l) => l.slice(8))
+    expect(blame.map((l) => l.summary)).toEqual(summaries)
+  })
+
   it('restoreFileVersion recupera una versión anterior', async () => {
     const repo = await newRepo()
     const first = await commitFile(repo, 'f.txt', 'version-1\n', 'c1')

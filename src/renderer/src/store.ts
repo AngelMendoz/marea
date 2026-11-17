@@ -123,6 +123,8 @@ interface AppState {
   closeRepo: () => void
   switchTab: (path: string) => Promise<void>
   closeTab: (path: string) => void
+  /** Mueve la pestaña `from` junto a `to` (antes o después) y guarda el orden. */
+  moveTab: (from: string, to: string, after: boolean) => void
   setAlias: (path: string, alias: string) => void
   refresh: () => Promise<void>
   /** Carga el siguiente lote del historial y lo concatena (scroll infinito). */
@@ -306,6 +308,20 @@ export const useStore = create<AppState>((set, get) => ({
       if (remaining.length > 0) get().openRepo(remaining[remaining.length - 1].path)
       else get().closeRepo()
     }
+  },
+
+  moveTab: (from, to, after) => {
+    if (from === to) return
+    set((s) => {
+      const moving = s.tabs.find((t) => t.path === from)
+      if (!moving) return {}
+      const tabs = s.tabs.filter((t) => t.path !== from)
+      const idx = tabs.findIndex((t) => t.path === to)
+      if (idx < 0) return {}
+      tabs.splice(after ? idx + 1 : idx, 0, moving)
+      persistSession(tabs, s.repo?.path ?? null)
+      return { tabs }
+    })
   },
 
   setAlias: (path, alias) => {

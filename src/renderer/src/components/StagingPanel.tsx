@@ -15,6 +15,7 @@ import { useCenterView } from '../centerView'
 import { useContextMenu } from '../contextMenu'
 import { useIssueLinks } from '../issueLinks'
 import { fileContextItems } from '../lib/fileActions'
+import { headIsPushed, offerForcePushAfterRewrite } from '../lib/gitActions'
 import { useStore } from '../store'
 
 const TYPE_LETTER: Record<string, string> = {
@@ -66,8 +67,26 @@ export function StagingPanel(): JSX.Element {
   const [hookCount, setHookCount] = useState(0)
   const [noVerify, setNoVerify] = useState(false)
   const templateApplied = useRef<string | null>(null)
+  // Mensaje del último commit cargado al marcar «amend» (se retira al desmarcar).
+  const amendLoaded = useRef<{ summary: string; description: string } | null>(null)
 
   const repoPath = repo?.path
+  // El borrador del mensaje es de cada repo: al cambiar de pestaña se guarda el
+  // del anterior y se recupera el del nuevo (si no, se confirmaría en otro repo).
+  const drafts = useRef(new Map<string, { summary: string; description: string }>())
+  const draftRepo = useRef(repoPath)
+  useEffect(() => {
+    const prev = draftRepo.current
+    if (prev === repoPath) return
+    if (prev) drafts.current.set(prev, { summary, description })
+    const draft = repoPath ? drafts.current.get(repoPath) : undefined
+    setSummary(draft?.summary ?? '')
+    setDescription(draft?.description ?? '')
+    setAmend(false)
+    amendLoaded.current = null
+    draftRepo.current = repoPath
+  }, [repoPath])
+
   useEffect(() => {
     if (!repoPath) return
     let cancelled = false
@@ -115,32 +134,63 @@ export function StagingPanel(): JSX.Element {
     setSummary('')
     setDescription('')
     setAmend(false)
+    amendLoaded.current = null
   }
 
-  const doCommit = (): void => {
+  // Enmendar un commit que ya está en el remoto obliga a un force push después.
+  const amendPushed = amend && headIsPushed()
+
+  /** Al marcar «amend» con el formulario vacío, carga el mensaje actual para
+   *  poder reescribirlo en lugar de teclearlo de nuevo. */
+  const toggleAmend = (on: boolean): void => {
+    setAmend(on)
+    if (!on) {
+      // Desmarcar no debe dejar el mensaje viejo listo para un commit nuevo.
+      const loaded = amendLoaded.current
+      amendLoaded.current = null
+      if (loaded && summary === loaded.summary && description === loaded.description) {
+        setSummary('')
+        setDescription('')
+      }
+      return
+    }
+    if (summary.trim() || description.trim()) return
+    bridge
+      .headMessage(repo.path)
+      .then((msg) => {
+        const [first = '', ...rest] = msg.replace(/\r\n/g, '\n').split('\n')
+        const loaded = { summary: first.trim(), description: rest.join('\n').trim() }
+        amendLoaded.current = loaded
+        setSummary((s) => s || loaded.summary)
+        setDescription((d) => d || loaded.description)
+      })
+      .catch(() => undefined)
+  }
+
+  const commitWith = (label: string, stageFirst: boolean): void => {
     if (!summary.trim()) {
       notify('error', 'Escribe un resumen del commit')
       return
     }
-    run('Commit', async () => {
-      await bridge.commit(repo.path, commitMessage(), { amend, noVerify })
-      resetForm()
-      setNoVerify(false)
-    })
-  }
-
-  const stageAndCommit = (): void => {
-    if (!summary.trim()) {
-      notify('error', 'Escribe un resumen del commit')
+    // «Preparar y confirmar» haría `git add -A` y metería los marcadores
+    // <<<<<<< de los archivos en conflicto en el commit.
+    if (conflicted.length > 0) {
+      notify('error', 'Resuelve primero los archivos en conflicto (o márcalos como resueltos)')
       return
     }
-    run('Preparar y confirmar', async () => {
-      await bridge.stageAll(repo.path)
+    const offerPush = amendPushed
+    let ok = false
+    void run(label, async () => {
+      if (stageFirst) await bridge.stageAll(repo.path)
       await bridge.commit(repo.path, commitMessage(), { amend, noVerify })
       resetForm()
       setNoVerify(false)
-    })
+      ok = true
+    }).then(() => ok && offerPush && offerForcePushAfterRewrite())
   }
+
+  const doCommit = (): void => commitWith(amend ? 'Commit enmendado' : 'Commit', false)
+  const stageAndCommit = (): void => commitWith(amend ? 'Commit enmendado' : 'Preparar y confirmar', true)
 
   const fileActions = (f: FileChange): JSX.Element =>
     f.staged ? (
@@ -361,9 +411,14 @@ export function StagingPanel(): JSX.Element {
         <label
           style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '8px 0 0', color: 'var(--text-dim)', fontSize: 12 }}
         >
-          <input type="checkbox" checked={amend} onChange={(e) => setAmend(e.target.checked)} />
+          <input type="checkbox" checked={amend} onChange={(e) => toggleAmend(e.target.checked)} />
           Enmendar último commit (amend)
         </label>
+        {amendPushed && (
+          <div style={{ margin: '4px 0 0 20px', color: 'var(--warn)', fontSize: 12 }}>
+            Ese commit ya está en {status.tracking}: al terminar se ofrecerá subirlo con force push.
+          </div>
+        )}
         {hookCount > 0 && (
           <label
             title="No ejecuta los hooks pre-commit ni commit-msg en este commit (--no-verify)"

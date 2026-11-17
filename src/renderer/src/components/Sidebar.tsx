@@ -490,7 +490,8 @@ function SubmodulesSection(): JSX.Element {
       confirmText: 'Continuar',
       onConfirm: (url) => {
         const cleanUrl = url.trim()
-        const suggested = cleanUrl.replace(/\.git$/, '').split(/[\\/]/).pop() ?? 'submodulo'
+        const suggested =
+          cleanUrl.replace(/[\\/]+$/, '').replace(/\.git$/, '').split(/[\\/:]/).pop() || 'submodulo'
         setTimeout(() =>
           openPrompt({
             title: 'Añadir submódulo',
@@ -835,6 +836,38 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
   const setOver = useDrag((s) => s.setOver)
   const displayName = b.name.split('/').pop() || b.name
 
+  /** Borra una rama local (también la actual, cambiando antes a otra) y,
+   *  si se pide, su copia en el remoto: el caso «la creé por error». */
+  const confirmDeleteBranch = async (branch: Branch, withRemote: boolean): Promise<void> => {
+    if (!repo) return
+    let switchTo = ''
+    if (branch.current) {
+      switchTo = await bridge.fallbackBranch(repo.path, branch.name).catch(() => '')
+      if (!switchTo) {
+        useStore.getState().notify('error', 'No hay otra rama a la que cambiar antes de eliminar esta')
+        return
+      }
+    }
+    const parts = [
+      switchTo ? `Estás en «${branch.name}»: se cambiará a «${switchTo}» (los cambios sin confirmar te acompañan).` : '',
+      `Se eliminará la rama «${branch.name}», aunque tenga commits sin fusionar.`,
+      withRemote ? `También se borrará ${branch.upstream} del remoto (afecta a todo el equipo).` : ''
+    ]
+    openConfirm({
+      title: withRemote ? 'Eliminar rama local y remota' : 'Eliminar rama',
+      message: parts.filter(Boolean).join(' '),
+      danger: true,
+      confirmText: 'Eliminar',
+      onConfirm: () =>
+        run('Eliminar rama', () =>
+          bridge.deleteBranch(repo.path, branch.name, true, {
+            switchTo: switchTo || undefined,
+            deleteUpstream: withRemote
+          })
+        )
+    })
+  }
+
   const contextMenu = (e: React.MouseEvent): void => {
     e.preventDefault()
     if (!repo) return
@@ -850,7 +883,7 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
     const providerUrl = remoteUrl && remoteBranch ? branchWebUrl(remoteUrl, remoteBranch) : null
     openMenu(e.clientX, e.clientY, [
       {
-        label: b.isRemote ? `Checkout «${remoteBranch}» (crea rama local)` : `Checkout «${displayName}»`,
+        label: b.isRemote ? `Checkout «${remoteBranch}» (crea rama local)` : `Checkout «${b.name}»`,
         disabled: b.current,
         onClick: () =>
           run('Checkout', () => bridge.checkout(repo.path, b.isRemote ? remoteBranch : b.name))
@@ -879,13 +912,13 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
       },
       { divider: true },
       {
-        label: `Comparar «${displayName}» con ${current}`,
+        label: `Comparar «${b.name}» con ${current}`,
         disabled: b.current,
         onClick: () =>
           useCenterView.getState().openCompare({ a: b.name, b: current, aLabel: b.name, bLabel: current })
       },
       {
-        label: `Comparar «${displayName}» con el working tree`,
+        label: `Comparar «${b.name}» con el working tree`,
         onClick: () =>
           useCenterView.getState().openCompare({ a: b.name, b: '', aLabel: b.name, bLabel: 'Working tree' })
       },
@@ -933,7 +966,9 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
         : // ---- Acciones de rama local ----
           [
             {
-              label: providerUrl ? 'Abrir en el proveedor' : 'Abrir en el proveedor (sin upstream)',
+              label: providerUrl
+                ? 'Abrir en el proveedor'
+                : `Abrir en el proveedor (${b.upstream ? 'remoto sin web conocida' : 'sin upstream'})`,
               disabled: !providerUrl,
               onClick: () => providerUrl && bridge.openExternal(providerUrl)
             },
@@ -946,6 +981,7 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
                   defaultValue:
                     b.upstream ?? `${useStore.getState().refs?.defaultRemote || 'origin'}/${b.name}`,
                   confirmText: 'Configurar',
+                  optional: true,
                   onConfirm: (val) =>
                     run(
                       val.trim() ? 'Upstream configurado' : 'Upstream quitado',
@@ -963,19 +999,21 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
                   onConfirm: (name) => run('Renombrar rama', () => bridge.renameBranch(repo.path, b.name, name))
                 })
             },
+            { divider: true } as const,
             {
               label: 'Eliminar',
               danger: true,
-              disabled: b.current,
-              onClick: () =>
-                openConfirm({
-                  title: 'Eliminar rama',
-                  message: `¿Eliminar la rama «${b.name}»?`,
-                  danger: true,
-                  confirmText: 'Eliminar',
-                  onConfirm: () => run('Eliminar rama', () => bridge.deleteBranch(repo.path, b.name, true))
-                })
-            }
+              onClick: () => void confirmDeleteBranch(b, false)
+            },
+            ...(b.upstream
+              ? [
+                  {
+                    label: `Eliminar también de ${b.upstream.split('/')[0]}`,
+                    danger: true,
+                    onClick: () => void confirmDeleteBranch(b, true)
+                  }
+                ]
+              : [])
           ])
     ])
   }

@@ -3,11 +3,13 @@ import { join } from 'path'
 import { registerIpc } from './ipc'
 import { disposeAllTerminals } from './terminal'
 
-// En desarrollo se aísla el perfil: la app instalada y `npm run dev` comparten
-// %APPDATA%/Marea, y con las dos abiertas la caché de disco/GPU falla con
-// "Unable to move the cache: Acceso denegado (0x5)".
+// Sin empaquetar (npm run dev / npm start) se usa un perfil propio: si no, la
+// app instalada y la de desarrollo comparten carpeta de datos y Chromium falla
+// al bloquear su caché («Unable to move the cache: Acceso denegado»).
+// `--user-data-dir` permite fijar otro perfil (pruebas automatizadas).
 if (!app.isPackaged) {
-  app.setPath('userData', `${app.getPath('userData')}-dev`)
+  const custom = app.commandLine.getSwitchValue('user-data-dir')
+  app.setPath('userData', custom || join(app.getPath('appData'), 'Marea-dev'))
 }
 
 function createWindow(): void {
@@ -25,7 +27,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Visor de PDF integrado de Chromium (vista previa de PDFs del repo).
+      plugins: true
     }
   })
 

@@ -14,47 +14,71 @@ import {
   Check,
   Plus,
   Minus,
-  Undo2
+  Undo2,
+  Eye
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { bridge } from '../bridge'
 import { useDialog } from '../dialog'
-import { buildLinePatch, parseDiff, splitHunks, toSplitRows, type Hunk } from '../lib/parseDiff'
+import {
+  buildLinePatch,
+  parseDiff,
+  splitHunks,
+  toSplitRows,
+  type DiffLine,
+  type Hunk,
+  type SplitRow
+} from '../lib/parseDiff'
 import { useStore } from '../store'
+import { kindByExt, type FileInfo } from '@shared/fileKinds'
+import { BinaryView } from './BinaryView'
 import { BlameView } from './BlameView'
 import { DiffViewer } from './DiffViewer'
 import { FileHistory } from './FileHistory'
+import { CHUNK_ROWS, clipLine, LazyRows, MoreRows, useRowLimit } from './LazyRows'
 
 type Layout = 'hunk' | 'inline' | 'split'
 type ViewMode = 'diff' | 'file' | 'history' | 'blame'
 type Side = 'unstaged' | 'staged'
 
-function SplitDiff({ diff }: { diff: string }): JSX.Element {
+/** Contenido cargado (diff o archivo) junto a la selección a la que pertenece. */
+interface Loaded {
+  key: string
+  text: string
+}
+const NOT_LOADED: Loaded = { key: '', text: '' }
+
+/** Salida de git para un archivo que considera binario (sin hunks de texto). */
+const GIT_BINARY_RE = /^Binary files .* differ$/m
+
+function renderSplitRow(r: SplitRow): JSX.Element {
+  return r.hunk ? (
+    <div className="split-row hunk">
+      <div className="side full">{r.hunk}</div>
+    </div>
+  ) : (
+    <div className="split-row">
+      <div className={`side ${r.left ? r.left.kind : 'empty'}`}>
+        <span className="gutter">{r.left?.no ?? ''}</span>
+        <span className="content">{r.left ? clipLine(r.left.text) : ''}</span>
+      </div>
+      <div className={`side ${r.right ? r.right.kind : 'empty'}`}>
+        <span className="gutter">{r.right?.no ?? ''}</span>
+        <span className="content">{r.right ? clipLine(r.right.text) : ''}</span>
+      </div>
+    </div>
+  )
+}
+
+const SplitDiff = memo(function SplitDiff({ diff }: { diff: string }): JSX.Element {
   const rows = useMemo(() => toSplitRows(parseDiff(diff)), [diff])
   if (!diff.trim()) return <div className="empty">Sin cambios para mostrar</div>
   return (
     <div className="diff split">
-      {rows.map((r, i) =>
-        r.hunk ? (
-          <div key={i} className="split-row hunk">
-            <div className="side full">{r.hunk}</div>
-          </div>
-        ) : (
-          <div key={i} className="split-row">
-            <div className={`side ${r.left ? r.left.kind : 'empty'}`}>
-              <span className="gutter">{r.left?.no ?? ''}</span>
-              <span className="content">{r.left?.text ?? ''}</span>
-            </div>
-            <div className={`side ${r.right ? r.right.kind : 'empty'}`}>
-              <span className="gutter">{r.right?.no ?? ''}</span>
-              <span className="content">{r.right?.text ?? ''}</span>
-            </div>
-          </div>
-        )
-      )}
+      <LazyRows items={rows} renderRow={renderSplitRow} />
     </div>
   )
-}
+})
 
 /** Selección de líneas dentro de un hunk (stage/descarte por línea). */
 interface LineSel {
@@ -62,6 +86,56 @@ interface LineSel {
   lines: number[]
   anchor: number
 }
+
+type LineClick = (e: React.MouseEvent, hunkIdx: number, lineIdx: number, kind: string) => void
+
+/** Tramo de líneas de un hunk. Memoizado: al seleccionar líneas solo se
+ *  re-renderiza el hunk afectado (los demás reciben `picked` = null). */
+const HunkLines = memo(function HunkLines({
+  lines,
+  hunkIdx,
+  start,
+  end,
+  picked,
+  readOnly,
+  onLineClick
+}: {
+  lines: DiffLine[]
+  hunkIdx: number
+  start: number
+  end: number
+  picked: number[] | null
+  readOnly?: boolean
+  onLineClick: LineClick
+}): JSX.Element {
+  const out: JSX.Element[] = []
+  for (let j = start; j < end; j++) {
+    const l = lines[j]
+    const pickable = !readOnly && (l.kind === 'add' || l.kind === 'del')
+    const isPicked = !!picked && picked.includes(j)
+    out.push(
+      <div
+        key={j}
+        className={`diff-line ${l.kind === 'add' ? 'add' : l.kind === 'del' ? 'del' : ''}${
+          pickable ? ' pickable' : ''
+        }${isPicked ? ' picked' : ''}`}
+        title={pickable ? 'Clic: seleccionar línea · Shift+clic: rango · Ctrl+clic: alternar' : undefined}
+        onMouseDown={(e) => {
+          if (e.shiftKey) e.preventDefault() // evita selección de texto
+        }}
+        onClick={(e) => onLineClick(e, hunkIdx, j, l.kind)}
+      >
+        <span className="gutter">{l.oldNo ?? ''}</span>
+        <span className="gutter">{l.newNo ?? ''}</span>
+        <span className="content">
+          {l.kind === 'add' ? '+' : l.kind === 'del' ? '-' : ' '}
+          {clipLine(l.text)}
+        </span>
+      </div>
+    )
+  }
+  return <>{out}</>
+})
 
 function HunkView({
   diff,
@@ -86,41 +160,76 @@ function HunkView({
 }): JSX.Element {
   const hunks = useMemo(() => splitHunks(diff), [diff])
   const [sel, setSel] = useState<LineSel | null>(null)
+  const { limit, more, all } = useRowLimit()
+  const hunksRef = useRef(hunks)
+  hunksRef.current = hunks
 
   // La selección se descarta si el diff cambia (stage aplicado, edición, etc.).
   useEffect(() => setSel(null), [diff])
 
-  const clickLine = (e: React.MouseEvent, hunkIdx: number, lineIdx: number, kind: string): void => {
-    if (readOnly || (kind !== 'add' && kind !== 'del')) return
-    setSel((prev) => {
-      // Shift+clic: rango desde el ancla (solo líneas de cambio del mismo hunk).
-      if (e.shiftKey && prev && prev.hunk === hunkIdx) {
-        const [lo, hi] = prev.anchor < lineIdx ? [prev.anchor, lineIdx] : [lineIdx, prev.anchor]
-        const lines: number[] = []
-        hunks[hunkIdx].lines.forEach((l, j) => {
-          if (j >= lo && j <= hi && (l.kind === 'add' || l.kind === 'del')) lines.push(j)
-        })
-        return { hunk: hunkIdx, lines, anchor: prev.anchor }
-      }
-      // Ctrl/Cmd+clic: alterna la línea dentro de la selección.
-      if ((e.ctrlKey || e.metaKey) && prev && prev.hunk === hunkIdx) {
-        const has = prev.lines.includes(lineIdx)
-        const lines = has ? prev.lines.filter((x) => x !== lineIdx) : [...prev.lines, lineIdx]
-        return lines.length ? { hunk: hunkIdx, lines, anchor: lineIdx } : null
-      }
-      // Clic simple: selecciona la línea (o deselecciona si era la única).
-      if (prev && prev.hunk === hunkIdx && prev.lines.length === 1 && prev.lines[0] === lineIdx) {
-        return null
-      }
-      return { hunk: hunkIdx, lines: [lineIdx], anchor: lineIdx }
-    })
-  }
+  // Estable (usa refs) para no invalidar los tramos memoizados de HunkLines.
+  const clickLine = useCallback<LineClick>(
+    (e, hunkIdx, lineIdx, kind) => {
+      if (readOnly || (kind !== 'add' && kind !== 'del')) return
+      const shift = e.shiftKey
+      const toggle = e.ctrlKey || e.metaKey
+      setSel((prev) => {
+        // Shift+clic: rango desde el ancla (solo líneas de cambio del mismo hunk).
+        if (shift && prev && prev.hunk === hunkIdx) {
+          const [lo, hi] = prev.anchor < lineIdx ? [prev.anchor, lineIdx] : [lineIdx, prev.anchor]
+          const lines: number[] = []
+          hunksRef.current[hunkIdx].lines.forEach((l, j) => {
+            if (j >= lo && j <= hi && (l.kind === 'add' || l.kind === 'del')) lines.push(j)
+          })
+          return { hunk: hunkIdx, lines, anchor: prev.anchor }
+        }
+        // Ctrl/Cmd+clic: alterna la línea dentro de la selección.
+        if (toggle && prev && prev.hunk === hunkIdx) {
+          const has = prev.lines.includes(lineIdx)
+          const lines = has ? prev.lines.filter((x) => x !== lineIdx) : [...prev.lines, lineIdx]
+          return lines.length ? { hunk: hunkIdx, lines, anchor: lineIdx } : null
+        }
+        // Clic simple: selecciona la línea (o deselecciona si era la única).
+        if (prev && prev.hunk === hunkIdx && prev.lines.length === 1 && prev.lines[0] === lineIdx) {
+          return null
+        }
+        return { hunk: hunkIdx, lines: [lineIdx], anchor: lineIdx }
+      })
+    },
+    [readOnly]
+  )
 
   if (hunks.length === 0) return <div className="empty">Sin cambios para mostrar</div>
+
+  // Presupuesto de filas compartido entre hunks (cada cabecera cuenta como una).
+  let total = 0
+  for (const h of hunks) total += h.lines.length + 1
+  let budget = limit
+  let shown = 0
+
   return (
     <div className="diff hunkview">
       {hunks.map((h, i) => {
+        if (budget <= 0) return null
+        const count = Math.min(h.lines.length, budget - 1)
+        budget -= count + 1
+        shown += count + 1
         const selHere = sel && sel.hunk === i && sel.lines.length > 0 ? sel : null
+        const chunks: JSX.Element[] = []
+        for (let s = 0; s < count; s += CHUNK_ROWS) {
+          chunks.push(
+            <HunkLines
+              key={s}
+              lines={h.lines}
+              hunkIdx={i}
+              start={s}
+              end={Math.min(s + CHUNK_ROWS, count)}
+              picked={selHere ? selHere.lines : null}
+              readOnly={readOnly}
+              onLineClick={clickLine}
+            />
+          )
+        }
         return (
           <div key={i} className="hunk-block">
             <div className="hunk-bar">
@@ -184,40 +293,18 @@ function HunkView({
                 </button>
               )}
             </div>
-            {h.lines.map((l, j) => {
-              const pickable = !readOnly && (l.kind === 'add' || l.kind === 'del')
-              const picked = !!selHere && selHere.lines.includes(j)
-              return (
-                <div
-                  key={j}
-                  className={`diff-line ${l.kind === 'add' ? 'add' : l.kind === 'del' ? 'del' : ''}${
-                    pickable ? ' pickable' : ''
-                  }${picked ? ' picked' : ''}`}
-                  title={pickable ? 'Clic: seleccionar línea · Shift+clic: rango · Ctrl+clic: alternar' : undefined}
-                  onMouseDown={(e) => {
-                    if (e.shiftKey) e.preventDefault() // evita selección de texto
-                  }}
-                  onClick={(e) => clickLine(e, i, j, l.kind)}
-                >
-                  <span className="gutter">{l.oldNo ?? ''}</span>
-                  <span className="gutter">{l.newNo ?? ''}</span>
-                  <span className="content">
-                    {l.kind === 'add' ? '+' : l.kind === 'del' ? '-' : ' '}
-                    {l.text}
-                  </span>
-                </div>
-              )
-            })}
+            {chunks}
           </div>
         )
       })}
+      {shown < total && <MoreRows shown={shown} total={total} onMore={more} onAll={all} />}
     </div>
   )
 }
 
 /** File View con resaltado: las líneas añadidas/modificadas según
  *  el diff se marcan en verde; donde hubo eliminaciones, un marcador rojo. */
-function FileContent({ text, diff }: { text: string; diff: string }): JSX.Element {
+const FileContent = memo(function FileContent({ text, diff }: { text: string; diff: string }): JSX.Element {
   const lines = useMemo(() => text.split('\n'), [text])
   const marks = useMemo(() => {
     const added = new Set<number>()
@@ -237,29 +324,43 @@ function FileContent({ text, diff }: { text: string; diff: string }): JSX.Elemen
     return { added, delAbove }
   }, [diff])
 
+  const renderRow = useCallback(
+    (l: string, i: number) => (
+      <div
+        className={`diff-line${marks.added.has(i + 1) ? ' add' : ''}${
+          marks.delAbove.has(i + 1) ? ' del-above' : ''
+        }`}
+      >
+        <span className="gutter">{i + 1}</span>
+        <span className="content"> {clipLine(l)}</span>
+      </div>
+    ),
+    [marks]
+  )
+
   if (!text) return <div className="empty">Archivo vacío o no disponible</div>
   return (
     <div className="diff">
-      {lines.map((l, i) => (
-        <div
-          key={i}
-          className={`diff-line${marks.added.has(i + 1) ? ' add' : ''}${
-            marks.delAbove.has(i + 1) ? ' del-above' : ''
-          }`}
-        >
-          <span className="gutter">{i + 1}</span>
-          <span className="content"> {l}</span>
-        </div>
-      ))}
+      <LazyRows items={lines} renderRow={renderRow} />
     </div>
   )
-}
+})
 
 export function DiffPane(): JSX.Element | null {
-  const { repo, selectedFile, status, setSelectedFile, run } = useStore()
+  // Selectores individuales: suscribirse al store entero re-renderizaba el
+  // diff (potencialmente enorme) con cualquier cambio (toasts, busy, grafo…).
+  const repo = useStore((s) => s.repo)
+  const selectedFile = useStore((s) => s.selectedFile)
+  const status = useStore((s) => s.status)
+  const setSelectedFile = useStore((s) => s.setSelectedFile)
+  const run = useStore((s) => s.run)
   const { openConfirm } = useDialog()
-  const [diff, setDiff] = useState('')
-  const [fileText, setFileText] = useState('')
+  // Cada contenido recuerda de qué repo/archivo/lado es (`key`): mientras llega
+  // el del archivo o lado recién elegido no se muestra el anterior, cuyos
+  // botones de hunk actuarían sobre otro archivo o lado.
+  const [diffState, setDiffState] = useState<Loaded>(NOT_LOADED)
+  const [fileState, setFileState] = useState<Loaded>(NOT_LOADED)
+  const [infoState, setInfoState] = useState<{ key: string; info: FileInfo | null }>({ key: '', info: null })
   const [layout, setLayout] = useState<Layout>('inline')
   const [viewMode, setViewMode] = useState<ViewMode>('diff')
   const [side, setSide] = useState<Side>('unstaged')
@@ -270,6 +371,15 @@ export function DiffPane(): JSX.Element | null {
 
   const isWip = !!selectedFile && !selectedFile.commit
   const path = repo?.path
+  const staged = isWip ? side === 'staged' : selectedFile?.staged
+  const contentKey = selectedFile
+    ? JSON.stringify([path ?? null, selectedFile.path, selectedFile.commit ?? null, !!staged])
+    : ''
+  // Binarios (imágenes, PDF, Office, comprimidos…): nunca se piden como texto.
+  // Por extensión se sabe al instante; las desconocidas las confirma fileInfo.
+  const extKind = selectedFile ? kindByExt(selectedFile.path) : 'text'
+  const info = infoState.key === contentKey ? infoState.info : null
+  const knownBinary = extKind !== 'text' || (!!info && info.kind !== 'text')
 
   useEffect(() => {
     setSide(selectedFile?.staged ? 'staged' : 'unstaged')
@@ -278,19 +388,63 @@ export function DiffPane(): JSX.Element | null {
     setViewMode(selectedFile?.mode ?? 'diff')
   }, [selectedFile])
 
+  // Tipo y tamaños del archivo (barato: no lee el contenido entero).
   useEffect(() => {
     if (!path || !selectedFile || editing) return
+    let cancelled = false
+    const key = contentKey
+    bridge.fileInfo(path, { file: selectedFile.path, staged, commit: selectedFile.commit }).then(
+      (i) =>
+        !cancelled &&
+        setInfoState((prev) =>
+          prev.key === key && JSON.stringify(prev.info) === JSON.stringify(i) ? prev : { key, info: i }
+        ),
+      () =>
+        !cancelled &&
+        setInfoState({ key, info: { kind: extKind, old: { size: null, sig: '' }, new: { size: null, sig: '' } } })
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [path, selectedFile, status, staged, editing, contentKey, extKind])
+
+  useEffect(() => {
+    if (!path || !selectedFile || editing || knownBinary) return
     if (viewMode === 'history' || viewMode === 'blame') return // cargan lo suyo
-    const staged = isWip ? side === 'staged' : selectedFile.staged
+    // Con archivos grandes una petición puede tardar más que la siguiente
+    // (refresco del watcher, cambio de archivo): se ignoran las obsoletas.
+    let cancelled = false
+    const key = contentKey
+    // Conserva el objeto si nada cambió: un refresco idéntico no re-renderiza.
+    const store =
+      (set: React.Dispatch<React.SetStateAction<Loaded>>) =>
+      (text: string): void => {
+        if (!cancelled) set((prev) => (prev.key === key && prev.text === text ? prev : { key, text }))
+      }
     if (viewMode === 'file') {
-      bridge.fileContent(path, { file: selectedFile.path, staged, commit: selectedFile.commit }).then(setFileText)
+      bridge
+        .fileContent(path, { file: selectedFile.path, staged, commit: selectedFile.commit })
+        .then(store(setFileState), () => store(setFileState)(''))
     }
     // El diff también alimenta el resaltado de la File View.
-    bridge.diff(path, { file: selectedFile.path, staged, commit: selectedFile.commit }).then(setDiff)
-  }, [path, selectedFile, status, side, viewMode, isWip, editing])
+    bridge
+      .diff(path, { file: selectedFile.path, staged, commit: selectedFile.commit })
+      .then(store(setDiffState), () => store(setDiffState)(''))
+    return () => {
+      cancelled = true
+    }
+  }, [path, selectedFile, status, side, viewMode, isWip, editing, staged, contentKey, knownBinary])
 
   if (!selectedFile) return null
 
+  // Clave por archivo: al cambiar de archivo las vistas se remontan (vuelven a
+  // la carga progresiva inicial y al principio del scroll); los refrescos del
+  // mismo archivo conservan las líneas ya cargadas.
+  const viewKey = JSON.stringify([selectedFile.path, selectedFile.commit ?? null, side])
+  // null = aún no ha llegado el contenido de lo que está seleccionado ahora.
+  const diff = diffState.key === contentKey ? diffState.text : null
+  const fileText = fileState.key === contentKey ? fileState.text : null
+  const isBinary = knownBinary || (diff !== null && GIT_BINARY_RE.test(diff) && !diff.includes('\n@@'))
   const name = selectedFile.path.split('/').pop()
   const dir = selectedFile.path.split('/').slice(0, -1).join('/')
 
@@ -352,6 +506,9 @@ export function DiffPane(): JSX.Element | null {
     if (dir > 0) {
       const next = offsets.find((o) => o > cur + 2)
       if (next != null) scroller.scrollTo({ top: next, behavior: 'smooth' })
+      // Sin más cambios pintados pero quedan líneas por cargar: baja al final
+      // para que la carga progresiva traiga el siguiente tramo.
+      else if (scroller.querySelector('.diff-more')) scroller.scrollTo({ top: scroller.scrollHeight })
     } else {
       const prev = [...offsets].reverse().find((o) => o < cur - 2)
       scroller.scrollTo({ top: prev ?? 0, behavior: 'smooth' })
@@ -379,7 +536,7 @@ export function DiffPane(): JSX.Element | null {
             </>
           ) : (
             <>
-              {isWip && (
+              {isWip && !isBinary && (
                 <button className="mini" title="Editar en el working tree" onClick={startEdit}>
                   <Pencil size={13} /> Editar
                 </button>
@@ -398,30 +555,45 @@ export function DiffPane(): JSX.Element | null {
                 </div>
               )}
 
-              <div className="seg small">
-                <button className={viewMode === 'diff' ? 'active' : ''} onClick={() => setViewMode('diff')}>
-                  <FileCode2 size={13} /> Diff
-                </button>
-                <button className={viewMode === 'file' ? 'active' : ''} onClick={() => setViewMode('file')}>
-                  <FileText size={13} /> Archivo
-                </button>
-                <button
-                  className={viewMode === 'history' ? 'active' : ''}
-                  title="Commits que tocaron este archivo"
-                  onClick={() => setViewMode('history')}
-                >
-                  <History size={13} /> History
-                </button>
-                <button
-                  className={viewMode === 'blame' ? 'active' : ''}
-                  title="Autor y commit de cada línea"
-                  onClick={() => setViewMode('blame')}
-                >
-                  <Users size={13} /> Blame
-                </button>
-              </div>
+              {isBinary ? (
+                <div className="seg small">
+                  <button className={viewMode !== 'history' ? 'active' : ''} onClick={() => setViewMode('diff')}>
+                    <Eye size={13} /> Vista previa
+                  </button>
+                  <button
+                    className={viewMode === 'history' ? 'active' : ''}
+                    title="Commits que tocaron este archivo"
+                    onClick={() => setViewMode('history')}
+                  >
+                    <History size={13} /> History
+                  </button>
+                </div>
+              ) : (
+                <div className="seg small">
+                  <button className={viewMode === 'diff' ? 'active' : ''} onClick={() => setViewMode('diff')}>
+                    <FileCode2 size={13} /> Diff
+                  </button>
+                  <button className={viewMode === 'file' ? 'active' : ''} onClick={() => setViewMode('file')}>
+                    <FileText size={13} /> Archivo
+                  </button>
+                  <button
+                    className={viewMode === 'history' ? 'active' : ''}
+                    title="Commits que tocaron este archivo"
+                    onClick={() => setViewMode('history')}
+                  >
+                    <History size={13} /> History
+                  </button>
+                  <button
+                    className={viewMode === 'blame' ? 'active' : ''}
+                    title="Autor y commit de cada línea"
+                    onClick={() => setViewMode('blame')}
+                  >
+                    <Users size={13} /> Blame
+                  </button>
+                </div>
+              )}
 
-              {viewMode === 'diff' && (
+              {viewMode === 'diff' && !isBinary && (
                 <div className="seg small">
                   <button className={layout === 'hunk' ? 'active' : ''} title="Por bloques" onClick={() => setLayout('hunk')}>
                     <Rows3 size={13} /> Hunk
@@ -437,7 +609,7 @@ export function DiffPane(): JSX.Element | null {
 
               <span className="dph-div" />
 
-              {viewMode === 'diff' && layout !== 'hunk' && (
+              {viewMode === 'diff' && layout !== 'hunk' && !isBinary && (
                 <>
                   <button className="mini icon" title="Cambio anterior" onClick={() => nav(-1)}>
                     <ChevronUp size={15} />
@@ -447,9 +619,11 @@ export function DiffPane(): JSX.Element | null {
                   </button>
                 </>
               )}
-              <button className={`mini icon${wrap ? ' on' : ''}`} title="Ajuste de línea" onClick={() => setWrap((v) => !v)}>
-                <WrapText size={15} />
-              </button>
+              {!isBinary && (
+                <button className={`mini icon${wrap ? ' on' : ''}`} title="Ajuste de línea" onClick={() => setWrap((v) => !v)}>
+                  <WrapText size={15} />
+                </button>
+              )}
               <button className="mini icon" title="Cerrar diff" onClick={() => setSelectedFile(null)}>
                 <X size={16} />
               </button>
@@ -462,14 +636,23 @@ export function DiffPane(): JSX.Element | null {
         <textarea className="file-editor" value={editText} onChange={(e) => setEditText(e.target.value)} spellCheck={false} />
       ) : viewMode === 'history' ? (
         <FileHistory file={selectedFile.path} commit={selectedFile.commit} />
+      ) : isBinary ? (
+        <BinaryView
+          key={viewKey}
+          fileRef={{ file: selectedFile.path, staged, commit: selectedFile.commit }}
+          info={info}
+        />
       ) : viewMode === 'blame' ? (
         <BlameView file={selectedFile.path} commit={selectedFile.commit} />
+      ) : diff === null || (viewMode === 'file' && fileText === null) ? (
+        <div className="empty">Cargando…</div>
       ) : viewMode === 'file' ? (
-        <FileContent text={fileText} diff={diff} />
+        <FileContent key={viewKey} text={fileText ?? ''} diff={diff} />
       ) : layout === 'split' ? (
-        <SplitDiff diff={diff} />
+        <SplitDiff key={viewKey} diff={diff} />
       ) : layout === 'hunk' ? (
         <HunkView
+          key={viewKey}
           diff={diff}
           side={isWip ? side : 'staged'}
           readOnly={!isWip}
@@ -481,7 +664,7 @@ export function DiffPane(): JSX.Element | null {
           onDiscardLines={discardLines}
         />
       ) : (
-        <DiffViewer diff={diff} />
+        <DiffViewer key={viewKey} diff={diff} />
       )}
     </div>
   )
