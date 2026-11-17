@@ -80,14 +80,12 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
 
 ## 2. Requisitos
 
-- **Windows 10/11**, **macOS** o **Linux** (Ubuntu/Debian y la mayoría de
+- **Windows 10/11** o **Linux** (Ubuntu/Debian y la mayoría de
   distribuciones).
 - **Git instalado en el sistema.** Marea no trae su propio Git: usa el que
   tengas instalado. Si no lo tienes:
   - **Windows:** descarga «Git for Windows» desde <https://git-scm.com> e
     instálalo con las opciones por defecto.
-  - **macOS:** normalmente ya viene; si no, se instala con las «Herramientas de
-    línea de comandos de Xcode».
   - **Linux:** instálalo con tu gestor de paquetes, p. ej. `sudo apt install git`.
 
 > No necesitas saber usar Git por consola. Solo necesitas tenerlo **instalado**
@@ -102,7 +100,8 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
 
 ### Windows (instalador `.exe`)
 
-1. Descarga el archivo **`Marea-0.2.1-win-x64.exe`**.
+1. Descarga el archivo **`Marea-<versión>-win-x64.exe`** (por ejemplo
+   `Marea-0.2.2-win-x64.exe`).
 2. Haz **doble clic** sobre él.
 3. Si Windows muestra un aviso de seguridad («Windows protegió tu PC»), pulsa
    **«Más información»** y luego **«Ejecutar de todas formas»** (esto aparece
@@ -115,29 +114,27 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
 ### Linux (AppImage o `.deb`)
 
 - **AppImage** (funciona en casi cualquier distribución):
-  1. Descarga **`Marea-0.2.1-linux-x86_64.AppImage`**.
+  1. Descarga **`Marea-<versión>-linux-x86_64.AppImage`**.
   2. Dale permiso de ejecución: clic derecho → *Propiedades* → *Permisos* →
      marca **«Permitir ejecutar como programa»** (o en terminal:
-     `chmod +x Marea-0.2.1-linux-x86_64.AppImage`).
-  3. Si tu sistema muestra un error de FUSE al abrirlo, instala la librería
-     `libfuse2` (en algunas versiones nuevas de Ubuntu/Debian, `libfuse2t64`):
-     `sudo apt install libfuse2`.
-  4. **Doble clic** para abrirlo.
-- **Paquete `.deb`** (Ubuntu/Debian):
-  1. Descarga **`Marea-0.2.1-linux-amd64.deb`**.
+     `chmod +x Marea-*-linux-x86_64.AppImage`).
+  3. **Doble clic** para abrirlo.
+  4. Si no abre y en la terminal ves `error loading libfuse.so.2`, instala
+     FUSE 2: `sudo apt install libfuse2` (en versiones recientes de
+     Ubuntu/Debian el paquete se llama `libfuse2t64`).
+  5. Si en Ubuntu 24.04 o posterior se cierra con un mensaje sobre el
+     *SUID sandbox*, usa el paquete `.deb` (configura AppArmor al instalarse)
+     o abre el AppImage con `--no-sandbox`.
+- **Paquete `.deb`** (Ubuntu/Debian, recomendado en Ubuntu):
+  1. Descarga **`Marea-<versión>-linux-amd64.deb`**.
   2. Ábrelo con el instalador de aplicaciones, o en terminal:
-     `sudo dpkg -i Marea-0.2.1-linux-amd64.deb`.
+     `sudo apt install ./Marea-<versión>-linux-amd64.deb` (con `apt`, no con
+     `dpkg -i`, para que instale también las dependencias que falten).
   3. Búscalo luego en tu menú de aplicaciones como **Marea**.
 
 > En Linux puedes ver avisos de arranque como mensajes de GTK, Wayland o
 > `DeprecationWarning`. Si la ventana abre y la app funciona, esos mensajes no
 > suelen impedir el uso normal.
-
-### macOS (desde el código)
-
-Todavía **no publicamos un instalador para macOS** (generarlo requiere un equipo
-Mac). Mientras tanto, puedes ejecutar Marea desde el código fuente — ver el
-apartado siguiente; funciona igual en macOS.
 
 ### Ejecutar desde el código (para desarrolladores)
 
@@ -147,6 +144,10 @@ Si tienes el código fuente y Node.js instalado:
 npm install     # instala dependencias (solo la primera vez)
 npm run dev      # abre la aplicación de escritorio
 ```
+
+La versión de desarrollo guarda sus datos (pestañas, repos recientes,
+cuentas) en un perfil propio, **Marea-dev**, así que puede estar abierta a la
+vez que la Marea instalada sin que se estorben.
 
 ---
 
@@ -404,11 +405,24 @@ o como árbol de carpetas.
 2. Si quieres, añade una **Descripción** más larga debajo.
 3. Opciones:
    - **Enmendar último commit (amend)**: en vez de crear un commit nuevo,
-     modifica el último. Útil si te olvidaste de algo.
+     modifica el último. Útil si te olvidaste de algo. Al marcarlo con el
+     formulario vacío, Marea carga el mensaje actual para que lo reescribas.
+     Si ese commit **ya estaba subido**, verás un aviso y, al terminar, Marea
+     te ofrecerá subirlo con **force push** (`--force-with-lease`).
    - **Saltar hooks en este commit**: aparece si el repo tiene *hooks* (scripts
      automáticos); permite saltártelos esta vez.
 4. Pulsa el botón verde **Confirmar N cambios**. Si no habías preparado nada, el
    botón dirá **Preparar y confirmar** y preparará todo por ti antes de guardar.
+
+> **Un borrador por repositorio.** Si escribes un mensaje a medias y cambias de
+> pestaña, el texto se queda guardado en **ese** repositorio y vuelve a aparecer
+> al regresar; el otro repositorio no lo hereda.
+>
+> **Con archivos en conflicto no se puede confirmar.** Resuélvelos primero
+> (sección 17): así nunca se guardan por error las marcas `<<<<<<<` del choque.
+>
+> Si al marcar **amend** se cargó el mensaje del último commit y lo desmarcas
+> sin tocarlo, el formulario se vacía de nuevo.
 
 ---
 
@@ -425,6 +439,32 @@ central muestra su **diff**: exactamente qué cambió.
 - Los bloques de cambios se llaman **hunks**. En tus cambios sin confirmar
   puedes preparar o descartar **hunk por hunk** o incluso **línea a línea**, para
   hacer commits muy precisos.
+
+### 10.1. Imágenes, PDF y otros archivos binarios
+
+No todo es texto. Marea reconoce el tipo de archivo y, en vez de un diff
+ilegible, muestra una **Vista previa**:
+
+- **Imágenes** (PNG, JPG, GIF, WebP, BMP, ICO, AVIF): se ven tal cual, con sus
+  medidas y su peso. Si la imagen cambió, verás **antes** y **después**.
+- **PDF**: se abren con el visor integrado (páginas, zoom, búsqueda…).
+- **Otros binarios** (Word, Excel, PowerPoint, ZIP, ejecutables, audio, vídeo,
+  bases de datos…): Marea indica el tipo y el tamaño, pero **no** los carga como
+  texto para no trabar la aplicación.
+
+En todos los casos, el botón **Abrir** abre esa versión del archivo con la
+aplicación de tu sistema (Excel, Word, el visor de fotos…). Si es una versión
+de un commit antiguo, Marea la abre desde una copia temporal: tu carpeta de
+trabajo no se toca.
+
+> La vista previa admite archivos de hasta **64 MB**; para los más grandes usa
+> **Abrir**.
+
+### 10.2. Archivos muy grandes
+
+Los diffs, la vista **Archivo** y el **Blame** de archivos con decenas de miles
+de líneas se dibujan **por partes** a medida que te desplazas, así que se abren
+al instante aunque el archivo sea enorme.
 
 ---
 
@@ -463,7 +503,13 @@ resaltada.
 - **Rebase** y **Rebase interactivo** (sección 18).
 - **Comparar** con la rama actual o con tu trabajo.
 - **Crear worktree** (sección 20).
-- **Configurar upstream**, **Renombrar** y **Eliminar**.
+- **Configurar upstream** (deja el campo **vacío** para quitarlo),
+  **Renombrar** y **Eliminar**.
+- **¿Creaste una rama por error?** Puedes eliminarla aunque estés en ella:
+  Marea te cambia antes a la rama anterior (o a main/master/develop). Si ya la
+  habías publicado, **Eliminar también de origin** la borra además del remoto.
+  Si tienes cambios sin confirmar que chocan con la otra rama, Marea **no
+  borra nada** y te avisa: guárdalos antes con un **Stash** (sección 14).
 - En ramas remotas, además: **Abrir en el proveedor** y **Eliminar del remoto**.
 
 > **Arrastrar y soltar:** puedes arrastrar una rama sobre otra rama o sobre un
@@ -544,7 +590,8 @@ prisa.
 
 ![Botones de stash](manual-usuario/img/80-stash-botones.png)
 
-- **Stash**: guarda tus cambios actuales en el cajón (te deja escribir un nombre).
+- **Stash**: guarda tus cambios actuales en el cajón. Puedes escribirle un
+  nombre o dejarlo **vacío** (Git le pone uno automático).
 - **Pop**: recupera el último stash y lo quita del cajón.
 
 Los stashes guardados aparecen en la sección **Stashes** de la barra lateral.
@@ -555,6 +602,11 @@ Los stashes guardados aparecen en la sección **Stashes** de la barra lateral.
 - **Aplicar** (recuperar sin borrarlo del cajón) o **Pop** (recuperar y borrar).
 - **Ver diff del stash** y comparar con HEAD o con tu trabajo.
 - **Editar mensaje…** y **Eliminar**.
+
+> **Si al recuperar un stash hay choques** (porque el mismo archivo cambió
+> entretanto), Marea te lo dice y te muestra los archivos **En conflicto** para
+> resolverlos (sección 17). Con **Pop**, el stash **no** se borra del cajón
+> hasta que lo elimines tú: no pierdes nada.
 
 ---
 
@@ -590,6 +642,10 @@ Todas estas acciones están en el **menú del commit** (clic derecho en el grafo
 - **Cherry-pick**: copia **ese** commit encima de tu rama actual.
 - **Revert**: crea un commit **nuevo** que deshace lo que hizo ese commit (sin
   borrar historia; es la forma segura de «dar marcha atrás»).
+- **Reescribir mensaje del commit…** (solo en el último commit, el de HEAD):
+  corrige el resumen sin tocar los archivos. Si el commit ya estaba en el
+  remoto, Marea te ofrece subir la versión nueva con **force push**
+  (`--force-with-lease`, que aborta si alguien más empujó entretanto).
 
 ---
 
@@ -821,6 +877,8 @@ para ocultarla.
   o **Hotfix** (Marea crea la rama con el prefijo correcto).
 - En **Ramas Gitflow activas**, el botón **Finalizar** cierra la rama como manda
   el flujo (la mezcla donde corresponde y la borra).
+- Al finalizar una **Release** o un **Hotfix**, Marea propone un **tag** con la
+  versión. Déjalo **vacío** si no quieres crear tag.
 
 ---
 
@@ -971,6 +1029,8 @@ a la izquierda) o desde la bienvenida.
 - El **+** (a la derecha) abre otro repositorio.
 - **Clic derecho** en una pestaña: **asignar alias**, **copiar ruta** o
   **cerrar**.
+- **Arrastra** una pestaña a izquierda o derecha para **reordenarlas**; el
+  orden se guarda.
 - Marea **recuerda** las pestañas abiertas y las restaura la próxima vez que
   abras la aplicación.
 
@@ -1024,6 +1084,14 @@ app con normalidad.
 Casi siempre sí. Para deshacer un commit sin perder trabajo usa **Revert**; para
 mover la rama usa **Reset (soft/mixed)**. Evita **Reset (hard)** salvo que estés
 seguro, porque descarta cambios.
+
+**Un archivo de Word/Excel o un ZIP no muestra cambios línea a línea.**
+Es normal: son archivos **binarios**. Marea muestra su tipo y tamaño y, con
+**Abrir**, puedes verlos con su programa (sección 10.1).
+
+**Hice Pull y Marea dice que hay conflictos.**
+Tus cambios y los del remoto tocaron las mismas líneas. Sigue la sección 17; si
+prefieres no mezclar ahora, pulsa **Abortar** en el aviso de arriba.
 
 **¿La app modifica mi repositorio sin avisar?**
 No. Las acciones destructivas (force push, reset hard, borrar ramas remotas,
