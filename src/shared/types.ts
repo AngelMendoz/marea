@@ -494,6 +494,8 @@ export interface HooksInfo {
 /** Opciones del commit. */
 export interface CommitOptions {
   amend?: boolean
+  /** Con `amend`: cambia solo el mensaje, sin incluir lo preparado (`--only`). */
+  messageOnly?: boolean
   /** Salta los hooks pre-commit/commit-msg (`--no-verify`). */
   noVerify?: boolean
   /** Fuerza la firma de este commit (`-S`), aunque commit.gpgsign sea false. */

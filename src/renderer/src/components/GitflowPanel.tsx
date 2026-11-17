@@ -91,6 +91,7 @@ export function GitflowPanel(): JSX.Element | null {
       label: `Merge en «${cfg.master}» y «${cfg.develop}», luego se elimina la rama. Tag (vacío = sin tag):`,
       defaultValue: `${cfg.tagPrefix}${name}`,
       confirmText: 'Finalizar',
+      optional: true,
       onConfirm: (value) =>
         void run(`Finalizar ${TYPE_LABEL[type]}`, () =>
           bridge.gitflowFinish(repo.path, type, name, {

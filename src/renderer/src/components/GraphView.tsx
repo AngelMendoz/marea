@@ -17,6 +17,7 @@ import {
   ThumbsDown,
   FlagOff
 } from 'lucide-react'
+import { bisectCulprit } from '@shared/bisect'
 import { buildGraph } from '@shared/graph'
 import { commitWebUrl } from '@shared/remoteUrls'
 import type { Commit, CommitWithGraph, GraphRow, GraphSegment, RefDecoration } from '@shared/types'
@@ -26,6 +27,7 @@ import { useContextMenu, type MenuItem } from '../contextMenu'
 import { useDialog } from '../dialog'
 import { useDrag, type DragItem } from '../drag'
 import { branchOntoCommitMenu } from '../lib/dropMenus'
+import { promptRewordHead } from '../lib/gitActions'
 import { authorColor } from '../lib/avatar'
 import { initials, relativeTime } from '../lib/time'
 import { useStore } from '../store'
@@ -349,6 +351,12 @@ const CommitRow = memo(function CommitRow({
             onConfirm: (name) => run('Crear tag', () => bridge.createTag(repo.path, name, { ref: commit.hash }))
           })
       },
+      ...(commit.refs.some((r) => r.type === 'head')
+        ? [
+            { divider: true } as const,
+            { label: 'Reescribir mensaje del commit…', onClick: () => void promptRewordHead() }
+          ]
+        : []),
       { divider: true },
       { label: 'Cherry-pick', onClick: () => run('Cherry-pick', () => bridge.cherryPick(repo.path, commit.hash)) },
       { label: 'Revert', onClick: () => run('Revert', () => bridge.revert(repo.path, commit.hash)) },
@@ -404,7 +412,9 @@ const CommitRow = memo(function CommitRow({
         const url = remote ? commitWebUrl(remote.fetchUrl, commit.hash) : null
         return [
           {
-            label: url ? `Abrir en el proveedor (${remote!.name})` : 'Abrir en el proveedor (sin remoto)',
+            label: url
+              ? `Abrir en el proveedor (${remote!.name})`
+              : `Abrir en el proveedor (${remote ? 'remoto sin web conocida' : 'sin remoto'})`,
             disabled: !url,
             onClick: () => url && bridge.openExternal(url)
           }
@@ -760,8 +770,8 @@ export function GraphView(): JSX.Element {
     if (!repo) return
     void run(verdict === 'good' ? 'Marcar bueno' : 'Marcar malo', async () => {
       const msg = await bridge.bisectMark(repo.path, verdict)
-      const culprit = msg.match(/([0-9a-f]{7,40}) is the first bad commit/)
-      if (culprit) notify('success', `Commit culpable: ${culprit[1].slice(0, 7)}`)
+      const culprit = bisectCulprit(msg)
+      if (culprit) notify('success', `Commit culpable: ${culprit.slice(0, 7)}`)
       else {
         const line = msg.split('\n').find((l) => l.trim())
         if (line) notify('info', line.trim())

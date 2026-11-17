@@ -6,6 +6,8 @@ export interface PromptOptions {
   placeholder?: string
   defaultValue?: string
   confirmText?: string
+  /** Permite confirmar con el campo vacío (p. ej. mensaje opcional del stash). */
+  optional?: boolean
   onConfirm: (value: string) => void
 }
 

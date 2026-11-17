@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
+import { kindByExt } from '@shared/fileKinds'
 import type { FileHistoryEntry } from '@shared/types'
 import { bridge } from '../bridge'
 import { useContextMenu } from '../contextMenu'
 import { useDialog } from '../dialog'
 import { relativeTime } from '../lib/time'
 import { useStore } from '../store'
+import { BinaryView } from './BinaryView'
 import { DiffViewer } from './DiffViewer'
+import { clipLine, LazyRows } from './LazyRows'
+
+function renderFileLine(l: string, i: number): JSX.Element {
+  return (
+    <div className="diff-line">
+      <span className="gutter">{i + 1}</span>
+      <span className="content"> {clipLine(l)}</span>
+    </div>
+  )
+}
 
 /** Historial de un archivo (botón History del diff): lista de
  *  commits que lo tocaron (siguiendo renombres) + diff/contenido de cada
@@ -27,6 +39,8 @@ export function FileHistory({ file, commit }: { file: string; commit?: string })
   const [content, setContent] = useState<string | null>(null)
 
   const path = repo?.path
+  // Imágenes, PDF, Office…: vista previa de cada versión en lugar de texto.
+  const binary = kindByExt(file) !== 'text'
 
   useEffect(() => {
     if (!path) return
@@ -51,7 +65,7 @@ export function FileHistory({ file, commit }: { file: string; commit?: string })
   // Contenido del panel derecho: diff del commit, diff entre dos revisiones,
   // diff contra el working tree, o el archivo completo de esa versión.
   useEffect(() => {
-    if (!path || !selected) return
+    if (!path || !selected || binary) return
     let cancelled = false
     setContent(null)
     const load =
@@ -71,7 +85,7 @@ export function FileHistory({ file, commit }: { file: string; commit?: string })
     return () => {
       cancelled = true
     }
-  }, [path, selected, other, view, vsWorking])
+  }, [path, selected, other, view, vsWorking, binary])
 
   const lines = useMemo(() => (view === 'file' ? (content ?? '').split('\n') : []), [view, content])
 
@@ -169,37 +183,41 @@ export function FileHistory({ file, commit }: { file: string; commit?: string })
       <div className="fh-detail">
         <div className="fh-detail-head">
           <span className="fh-what">
-            {vsWorking && view === 'diff'
-              ? `${selected?.commit.shortHash} ↔ Working tree`
-              : other && view === 'diff'
-                ? `${other.commit.shortHash} ↔ ${selected?.commit.shortHash}`
-                : `Versión de ${selected?.commit.shortHash}`}
+            {binary
+              ? `Versión de ${selected?.commit.shortHash}`
+              : vsWorking && view === 'diff'
+                ? `${selected?.commit.shortHash} ↔ Working tree`
+                : other && view === 'diff'
+                  ? `${other.commit.shortHash} ↔ ${selected?.commit.shortHash}`
+                  : `Versión de ${selected?.commit.shortHash}`}
           </span>
-          <div className="seg small">
-            <button className={view === 'diff' ? 'active' : ''} onClick={() => setView('diff')}>
-              Diff
-            </button>
-            <button
-              className={view === 'file' ? 'active' : ''}
-              onClick={() => {
-                setView('file')
-                setCompareWith(null)
-              }}
-            >
-              Archivo
-            </button>
-          </div>
+          {!binary && (
+            <div className="seg small">
+              <button className={view === 'diff' ? 'active' : ''} onClick={() => setView('diff')}>
+                Diff
+              </button>
+              <button
+                className={view === 'file' ? 'active' : ''}
+                onClick={() => {
+                  setView('file')
+                  setCompareWith(null)
+                }}
+              >
+                Archivo
+              </button>
+            </div>
+          )}
         </div>
-        {content === null ? (
+        {binary && selected ? (
+          <BinaryView
+            key={`${selected.commit.hash}:${selected.path}`}
+            fileRef={{ file: selected.path, commit: selected.commit.hash }}
+          />
+        ) : content === null ? (
           <div className="empty small">Cargando…</div>
         ) : view === 'file' ? (
           <div className="diff">
-            {lines.map((l, i) => (
-              <div key={i} className="diff-line">
-                <span className="gutter">{i + 1}</span>
-                <span className="content"> {l}</span>
-              </div>
-            ))}
+            <LazyRows items={lines} renderRow={renderFileLine} />
           </div>
         ) : (
           <DiffViewer diff={content} />
