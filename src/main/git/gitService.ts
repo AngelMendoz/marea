@@ -1,8 +1,19 @@
 import { spawn } from 'child_process'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
+import {
+  closeSync,
+  existsSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'fs'
 import { homedir, tmpdir } from 'os'
-import { basename, isAbsolute, join } from 'path'
-import simpleGit, { type SimpleGit } from 'simple-git'
+import { basename, isAbsolute, join, resolve, sep } from 'path'
+import { simpleGit, type SimpleGit } from 'simple-git'
 import type {
   BisectState,
   BlameLine,
@@ -46,6 +57,13 @@ import type {
   Worktree,
   WorktreeAddOptions
 } from '../../shared/types'
+import {
+  kindByExt,
+  looksBinary,
+  PREVIEW_MAX_BYTES,
+  type FileInfo,
+  type FileSideInfo
+} from '../../shared/fileKinds'
 
 const US = '\x1f' // separador de campos
 const RS = '\x1e' // separador de registros
@@ -53,10 +71,17 @@ const RS = '\x1e' // separador de registros
 /** Ejecutable git a usar. Vacío = el `git` del PATH. */
 let gitBinary = ''
 
+/** simple-git 4 quita del proceso hijo las variables GIT_*, SSH_ASKPASS, etc.
+ *  heredadas. Marea corre con el entorno del propio usuario (GIT_SSH_COMMAND,
+ *  askpass, proxy…), así que las dejamos pasar como en la 3.x. */
+const inheritedEnv = (): string[] => Object.keys(process.env)
+
 function git(repoPath: string): SimpleGit {
   return simpleGit({
     baseDir: repoPath,
     maxConcurrentProcesses: 4,
+    allowEnvironment: inheritedEnv(),
+    allowConfig: ['gitflow.*'],
     ...(gitBinary ? { binary: gitBinary } : {})
   })
 }
@@ -71,26 +96,105 @@ async function resolveGitDir(repoPath: string): Promise<string | null> {
   }
 }
 
-/** Ejecuta git con spawn (sin shell) capturando stdout/stderr. */
-function execGit(
+/** Ejecuta git con spawn (sin shell) y devuelve stdout crudo (sirve también
+ *  para blobs binarios). `input` se escribe en stdin; con `maxBytes` deja de
+ *  leer (y termina git) en cuanto tiene esa cantidad. */
+function runGit(
   repoPath: string,
   args: string[],
-  opts: { env?: NodeJS.ProcessEnv } = {}
-): Promise<string> {
+  opts: { env?: NodeJS.ProcessEnv; input?: string; maxBytes?: number } = {}
+): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const p = spawn(gitBinary || 'git', ['-C', repoPath, ...args], { env: opts.env ?? process.env })
-    let out = ''
-    let err = ''
-    p.stdout.on('data', (d) => (out += d.toString()))
-    p.stderr.on('data', (d) => (err += d.toString()))
+    // Se acumulan Buffers y se decodifica una sola vez al final: con salidas
+    // grandes (blame de archivos enormes) evita concatenar miles de strings y
+    // no rompe caracteres UTF-8 que queden partidos entre dos trozos.
+    const out: Buffer[] = []
+    const err: Buffer[] = []
+    let got = 0
+    let cut = false
+    p.stdout.on('data', (d: Buffer) => {
+      if (cut) return
+      out.push(d)
+      got += d.length
+      if (opts.maxBytes != null && got >= opts.maxBytes) {
+        cut = true
+        p.kill()
+      }
+    })
+    p.stderr.on('data', (d: Buffer) => err.push(d))
+    p.stdin.on('error', () => {}) // EPIPE si git terminó (o se cortó) antes de leerlo
     p.on('error', reject)
-    p.on('close', (code) =>
-      code === 0
-        ? resolve(out)
-        : reject(new Error(err.trim() || out.trim() || `git salió con código ${code}`))
-    )
-    p.stdin.end()
+    p.on('close', (code) => {
+      const stdout = Buffer.concat(out)
+      if (code === 0 || cut) return resolve(stdout)
+      const stderr = Buffer.concat(err).toString('utf-8')
+      reject(new Error(stderr.trim() || stdout.toString('utf-8').trim() || `git salió con código ${code}`))
+    })
+    p.stdin.end(opts.input)
   })
+}
+
+/** Ejecuta git con spawn (sin shell) capturando stdout/stderr como texto. */
+async function execGit(
+  repoPath: string,
+  args: string[],
+  opts: { env?: NodeJS.ProcessEnv; input?: string } = {}
+): Promise<string> {
+  return (await runGit(repoPath, args, opts)).toString('utf-8')
+}
+
+/** Qué versión de un archivo hay a cada lado de un cambio. */
+interface FileRevOptions {
+  file: string
+  staged?: boolean
+  commit?: string
+}
+type ChangeSide = 'old' | 'new'
+
+/** `rev:ruta` de git para un lado del cambio; null = working tree.
+ *  Commit: padre → commit · Preparado: HEAD → índice · Sin preparar: índice → disco. */
+function sideRev(opts: FileRevOptions, side: ChangeSide): string | null {
+  if (opts.commit?.startsWith('-')) throw new Error('Revisión no válida')
+  const f = opts.file
+  if (opts.commit) return side === 'old' ? `${opts.commit}^:${f}` : `${opts.commit}:${f}`
+  if (opts.staged) return side === 'old' ? `HEAD:${f}` : `:${f}`
+  return side === 'old' ? `:${f}` : null
+}
+
+/** Ruta absoluta de un archivo del working tree (sin salir del repo). */
+function workPath(repoPath: string, file: string): string {
+  const root = resolve(repoPath)
+  const full = resolve(root, file)
+  if (!full.startsWith(root + sep)) throw new Error('Ruta fuera del repositorio')
+  return full
+}
+
+/** Primeros `n` bytes de un archivo del disco. */
+function readFileHead(full: string, n: number): Buffer {
+  const fd = openSync(full, 'r')
+  try {
+    const buf = Buffer.alloc(n)
+    return buf.subarray(0, readSync(fd, buf, 0, n, 0))
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/** `git stash apply|pop`. Con conflictos git sale con código 1 pero escribe el
+ *  aviso en stdout, y simple-git lo daría por bueno: aquí se informa. */
+async function applyStash(repoPath: string, op: 'apply' | 'pop', index: number): Promise<void> {
+  try {
+    await execGit(repoPath, ['stash', op, `stash@{${index}}`])
+  } catch (e) {
+    const unmerged = await execGit(repoPath, ['diff', '--name-only', '--diff-filter=U']).catch(() => '')
+    if (!unmerged.trim()) throw e
+    throw new Error(
+      `El stash se aplicó con conflictos en: ${unmerged.trim().split('\n').join(', ')}. ` +
+        'Resuélvelos en el panel de cambios' +
+        (op === 'pop' ? ' (el stash se conserva hasta que lo elimines).' : '.')
+    )
+  }
 }
 
 /** Parsea un registro individual del formato US usado por logPage. */
@@ -206,17 +310,22 @@ export const gitService = {
   },
 
   async init(dir: string): Promise<RepoInfo> {
-    await simpleGit({ baseDir: dir }).init()
+    await simpleGit({ baseDir: dir, allowEnvironment: inheritedEnv() }).init()
     return this.open(dir)
   },
 
   async clone(opts: CloneOptions): Promise<string> {
+    // Último segmento de la URL (también `host:repo.git` de SSH y URLs con
+    // barra final); sin él, git clonaría dentro de la propia carpeta destino.
     const name = opts.url
+      .trim()
+      .replace(/[\\/]+$/, '')
       .replace(/\.git$/, '')
-      .split(/[\\/]/)
-      .pop()!
+      .split(/[\\/:]/)
+      .pop()
+    if (!name) throw new Error('No se pudo deducir el nombre de la carpeta desde la URL')
     const target = join(opts.dir, name)
-    await simpleGit({ baseDir: opts.dir }).clone(opts.url, target)
+    await simpleGit({ baseDir: opts.dir, allowEnvironment: inheritedEnv() }).clone(opts.url, target)
     return target
   },
 
@@ -462,39 +571,53 @@ export const gitService = {
     return out
   },
 
-  /** Anotación por línea (`git blame --line-porcelain`). `ref` opcional para
-   *  anotar la versión de un commit concreto en vez del working tree. */
+  /** Anotación por línea (`git blame --porcelain`). `ref` opcional para
+   *  anotar la versión de un commit concreto en vez del working tree.
+   *  `--porcelain` (y no `--line-porcelain`) emite los datos de cada commit solo
+   *  la primera vez que aparece: con archivos grandes la salida es varias veces
+   *  menor. Esos datos se recuerdan por hash para el resto de sus líneas. */
   async blame(repoPath: string, file: string, ref?: string): Promise<BlameLine[]> {
-    const args = ['blame', '--line-porcelain']
+    const args = ['blame', '--porcelain']
     if (ref) args.push(ref)
     args.push('--', file)
     const raw = await execGit(repoPath, args)
 
+    type CommitInfo = { author: string; date: number; summary: string }
+    const infos = new Map<string, CommitInfo>()
     const lines: BlameLine[] = []
-    let cur: Partial<BlameLine> | null = null
+    let cur: { hash: string; lineNo: number; info: CommitInfo } | null = null
     for (const line of raw.split('\n')) {
-      const head = line.match(/^([0-9a-f]{40}) \d+ (\d+)(?: \d+)?$/)
-      if (head) {
-        cur = { hash: head[1], shortHash: head[1].slice(0, 7), lineNo: parseInt(head[2], 10) }
-      } else if (!cur) {
-        continue
-      } else if (line.startsWith('author ')) {
-        cur.author = line.slice('author '.length)
-      } else if (line.startsWith('author-time ')) {
-        cur.date = parseInt(line.slice('author-time '.length), 10)
-      } else if (line.startsWith('summary ')) {
-        cur.summary = line.slice('summary '.length)
-      } else if (line.startsWith('\t')) {
+      if (line.startsWith('\t')) {
+        if (!cur) continue
         lines.push({
-          hash: cur.hash!,
-          shortHash: cur.shortHash!,
-          author: cur.author ?? '',
-          date: cur.date ?? 0,
-          summary: cur.summary ?? '',
-          lineNo: cur.lineNo!,
+          hash: cur.hash,
+          shortHash: cur.hash.slice(0, 7),
+          author: cur.info.author,
+          date: cur.info.date,
+          summary: cur.info.summary,
+          lineNo: cur.lineNo,
           text: line.slice(1)
         })
         cur = null
+        continue
+      }
+      const head = line.match(/^([0-9a-f]{40}) \d+ (\d+)(?: \d+)?$/)
+      if (head) {
+        const hash = head[1]
+        let info = infos.get(hash)
+        if (!info) {
+          info = { author: '', date: 0, summary: '' }
+          infos.set(hash, info)
+        }
+        cur = { hash, lineNo: parseInt(head[2], 10), info }
+      } else if (!cur) {
+        continue
+      } else if (line.startsWith('author ')) {
+        cur.info.author = line.slice('author '.length)
+      } else if (line.startsWith('author-time ')) {
+        cur.info.date = parseInt(line.slice('author-time '.length), 10)
+      } else if (line.startsWith('summary ')) {
+        cur.info.summary = line.slice('summary '.length)
       }
     }
     return lines
@@ -506,24 +629,105 @@ export const gitService = {
     await execGit(repoPath, ['restore', '--source', ref, '--worktree', '--', file])
   },
 
-  /** Contenido completo de un archivo (para "File View"). */
+  /** Contenido completo de un archivo (para "File View"). Un binario devuelve
+   *  '' (decodificarlo como texto es lento, enorme e inútil). */
   async fileContent(
     repoPath: string,
     opts: { file: string; staged?: boolean; commit?: string }
   ): Promise<string> {
-    const g = git(repoPath)
     try {
-      if (opts.commit) return await g.show([`${opts.commit}:${opts.file}`])
-      if (opts.staged) return await g.show([`:${opts.file}`])
-      return readFileSync(join(repoPath, opts.file), 'utf-8')
+      if (opts.commit?.startsWith('-')) return ''
+      const rev = opts.commit ? `${opts.commit}:${opts.file}` : opts.staged ? `:${opts.file}` : null
+      if (!rev && looksBinary(readFileHead(workPath(repoPath, opts.file), 8000))) return ''
+      const buf = rev ? await runGit(repoPath, ['cat-file', 'blob', rev]) : readFileSync(workPath(repoPath, opts.file))
+      return looksBinary(buf) ? '' : buf.toString('utf-8')
     } catch {
       return ''
     }
   },
 
+  /** Tipo (texto, imagen, PDF, binario) y tamaño de un archivo a cada lado del
+   *  cambio, sin leerlo entero: decide si se puede mostrar como texto. */
+  async fileInfo(repoPath: string, opts: FileRevOptions): Promise<FileInfo> {
+    const revs = { old: sideRev(opts, 'old'), new: sideRev(opts, 'new') }
+    const blobRevs = [revs.old, revs.new].filter((r): r is string => r != null)
+    // Un solo proceso para oid y tamaño de ambos lados ("<rev> missing" si no existe).
+    const blobs = new Map<string, { oid: string; size: number }>()
+    if (blobRevs.length > 0) {
+      const raw = await execGit(repoPath, ['cat-file', '--batch-check'], { input: blobRevs.join('\n') + '\n' })
+        .catch(() => '')
+      raw.split('\n').forEach((line, i) => {
+        const m = /^([0-9a-f]+) blob (\d+)$/.exec(line.trim())
+        if (m && i < blobRevs.length) blobs.set(blobRevs[i], { oid: m[1], size: parseInt(m[2], 10) })
+      })
+    }
+    const sideInfo = (rev: string | null): FileSideInfo => {
+      if (rev) {
+        const b = blobs.get(rev)
+        return b ? { size: b.size, sig: b.oid } : { size: null, sig: '' }
+      }
+      try {
+        const st = statSync(workPath(repoPath, opts.file))
+        return st.isFile() ? { size: st.size, sig: `${st.size}:${st.mtimeMs}` } : { size: null, sig: '' }
+      } catch {
+        return { size: null, sig: '' }
+      }
+    }
+    const info: FileInfo = { kind: kindByExt(opts.file), old: sideInfo(revs.old), new: sideInfo(revs.new) }
+    // Extensión desconocida: se mira el principio del contenido (como hace git).
+    if (info.kind === 'text') {
+      const side: ChangeSide | null = info.new.size != null ? 'new' : info.old.size != null ? 'old' : null
+      if (side) {
+        try {
+          const rev = revs[side]
+          const head = rev
+            ? await runGit(repoPath, ['cat-file', 'blob', info[side].sig], { maxBytes: 8000 })
+            : readFileHead(workPath(repoPath, opts.file), 8000)
+          if (looksBinary(head)) info.kind = 'binary'
+        } catch {
+          /* sin acceso al contenido: se trata como texto */
+        }
+      }
+    }
+    return info
+  },
+
+  /** Bytes de un lado del cambio, para la vista previa de imágenes y PDF. */
+  async fileBlob(
+    repoPath: string,
+    opts: FileRevOptions,
+    side: ChangeSide,
+    maxBytes = PREVIEW_MAX_BYTES
+  ): Promise<Uint8Array> {
+    const rev = sideRev(opts, side)
+    let buf: Buffer
+    if (rev) {
+      buf = await runGit(repoPath, ['cat-file', 'blob', rev], { maxBytes: maxBytes + 1 })
+    } else {
+      const full = workPath(repoPath, opts.file)
+      if (statSync(full).size > maxBytes) throw new Error('Archivo demasiado grande para la vista previa')
+      buf = readFileSync(full)
+    }
+    if (buf.length > maxBytes) throw new Error('Archivo demasiado grande para la vista previa')
+    return buf
+  },
+
+  /** Ruta en disco de una versión del archivo, para abrirla con la aplicación
+   *  del sistema: el propio archivo si es el del working tree; si no, una copia
+   *  temporal con el mismo nombre (Excel, Word… la abren como un archivo más). */
+  async exportFileVersion(repoPath: string, opts: FileRevOptions, side: ChangeSide): Promise<string> {
+    const rev = sideRev(opts, side)
+    if (!rev) return workPath(repoPath, opts.file)
+    const buf = await runGit(repoPath, ['cat-file', 'blob', rev])
+    const dir = mkdtempSync(join(tmpdir(), 'marea-version-'))
+    const out = join(dir, basename(opts.file))
+    writeFileSync(out, buf)
+    return out
+  },
+
   /** Guarda el contenido de un archivo del working tree (editor in-app). */
   async writeFile(repoPath: string, file: string, content: string): Promise<void> {
-    writeFileSync(join(repoPath, file), content, 'utf-8')
+    writeFileSync(workPath(repoPath, file), content, 'utf-8')
   },
 
   /**
@@ -603,6 +807,8 @@ export const gitService = {
   async commit(repoPath: string, message: string, opts: CommitOptions = {}): Promise<void> {
     const options: Record<string, null> = {}
     if (opts.amend) options['--amend'] = null
+    // Solo el mensaje: no incluye lo que haya preparado.
+    if (opts.amend && opts.messageOnly) options['--only'] = null
     // Saltar hooks pre-commit/commit-msg.
     if (opts.noVerify) options['--no-verify'] = null
     // Firma puntual; la firma automática la aporta commit.gpgsign en config.
@@ -631,8 +837,56 @@ export const gitService = {
     }
   },
 
-  async deleteBranch(repoPath: string, name: string, force = false): Promise<void> {
-    await git(repoPath).branch([force ? '-D' : '-d', name])
+  /** Elimina una rama local. Con `switchTo` sirve también para la rama actual
+   *  (primero cambia a esa rama); con `deleteUpstream` borra además su copia
+   *  en el remoto (típico de una rama creada y publicada por error). */
+  async deleteBranch(
+    repoPath: string,
+    name: string,
+    force = false,
+    opts: { switchTo?: string; deleteUpstream?: boolean } = {}
+  ): Promise<void> {
+    const g = git(repoPath)
+    // El upstream se lee antes de borrar: `branch -D` elimina su config.
+    let remote = ''
+    let remoteBranch = ''
+    if (opts.deleteUpstream) {
+      const cfg = async (key: string): Promise<string> =>
+        (await g.raw(['config', '--get', `branch.${name}.${key}`]).catch(() => '')).trim()
+      remote = await cfg('remote')
+      remoteBranch = (await cfg('merge')).replace(/^refs\/heads\//, '')
+    }
+    if (opts.switchTo) await g.checkout(opts.switchTo)
+    await g.branch([force ? '-D' : '-d', name])
+    if (remote && remote !== '.' && remoteBranch) {
+      try {
+        await execGit(repoPath, ['push', remote, '--delete', remoteBranch])
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        // Ya no existía en el remoto: el objetivo (que no quede) está cumplido.
+        if (!/remote ref does not exist|unable to delete/i.test(msg)) {
+          throw new Error(`Rama local eliminada, pero no la remota ${remote}/${remoteBranch}: ${msg}`)
+        }
+      }
+    }
+  },
+
+  /** Rama a la que cambiar para poder borrar la actual: la anterior (@{-1})
+   *  si sigue existiendo, si no main/master/develop, si no cualquier otra. */
+  async fallbackBranch(repoPath: string, current: string): Promise<string> {
+    const g = git(repoPath)
+    const local = (await g.raw(['for-each-ref', '--format=%(refname:short)', 'refs/heads']))
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s && s !== current)
+    const prev = (await g.raw(['rev-parse', '--abbrev-ref', '@{-1}']).catch(() => '')).trim()
+    if (local.includes(prev)) return prev
+    return ['main', 'master', 'develop'].find((b) => local.includes(b)) ?? local[0] ?? ''
+  },
+
+  /** Mensaje completo del último commit (para reescribirlo con amend). */
+  async headMessage(repoPath: string): Promise<string> {
+    return (await execGit(repoPath, ['log', '-1', '--format=%B'])).trim()
   },
 
   async renameBranch(repoPath: string, oldName: string, newName: string): Promise<void> {
@@ -712,6 +966,9 @@ export const gitService = {
     const args: string[] = []
     if (opts.mode === 'rebase') args.push('--rebase')
     else if (opts.mode === 'ff-only') args.push('--ff-only')
+    // Explícito: sin pull.rebase configurado (Linux/macOS), git ≥ 2.33 se niega
+    // a integrar ramas divergentes («You have divergent branches…»).
+    else if (opts.mode === 'merge') args.push('--no-rebase')
     if (opts.remote) {
       args.push(opts.remote)
       if (opts.branch) args.push(opts.branch)
@@ -743,11 +1000,11 @@ export const gitService = {
   },
 
   async stashApply(repoPath: string, index: number): Promise<void> {
-    await git(repoPath).stash(['apply', `stash@{${index}}`])
+    await applyStash(repoPath, 'apply', index)
   },
 
   async stashPop(repoPath: string, index: number): Promise<void> {
-    await git(repoPath).stash(['pop', `stash@{${index}}`])
+    await applyStash(repoPath, 'pop', index)
   },
 
   async stashDrop(repoPath: string, index: number): Promise<void> {
@@ -1391,7 +1648,8 @@ export const gitService = {
   },
 
   /** Marca el commit (HEAD o `ref`) como bueno/malo. Devuelve el mensaje de git,
-   *  que incluye «<sha> is the first bad commit» cuando la búsqueda termina. */
+   *  que incluye «<sha> is the first bad commit» (con 'bad' entre comillas en
+   *  git 2.56+) cuando la búsqueda termina; ver `bisectCulprit`. */
   async bisectMark(repoPath: string, verdict: 'good' | 'bad', ref?: string): Promise<string> {
     const args = ['bisect', verdict]
     if (ref) args.push(ref)

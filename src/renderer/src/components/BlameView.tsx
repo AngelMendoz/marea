@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { BlameLine } from '@shared/types'
 import { bridge } from '../bridge'
 import { relativeTime } from '../lib/time'
 import { useStore } from '../store'
+import { clipLine, LazyRows } from './LazyRows'
 
 const UNCOMMITTED = '0000000000000000000000000000000000000000'
 
@@ -50,43 +51,47 @@ export function BlameView({ file, commit }: { file: string; commit?: string }): 
     return starts
   }, [lines])
 
+  const renderRow = useCallback(
+    (l: BlameLine, i: number) => {
+      const uncommitted = l.hash === UNCOMMITTED
+      const isStart = blockStart.has(i)
+      return (
+        <div
+          className={`diff-line blame-line${isStart ? ' block-start' : ''}`}
+          style={{ ['--blame-color' as string]: uncommitted ? 'var(--text-muted)' : colorFor(l.hash) }}
+        >
+          <span
+            className={`blame-info${uncommitted ? ' uncommitted' : ''}`}
+            title={
+              uncommitted
+                ? 'Cambios sin commitear'
+                : `${l.summary}\n${l.author} · ${relativeTime(l.date)}\nClic para ver el commit en el grafo`
+            }
+            onClick={() => !uncommitted && jumpToCommit(l.hash)}
+          >
+            {isStart && (
+              <>
+                <span className="ba">{uncommitted ? 'Sin commitear' : l.author}</span>
+                <span className="bh">{uncommitted ? '' : l.shortHash}</span>
+                <span className="bd">{uncommitted ? '' : relativeTime(l.date)}</span>
+              </>
+            )}
+          </span>
+          <span className="gutter">{l.lineNo}</span>
+          <span className="content"> {clipLine(l.text)}</span>
+        </div>
+      )
+    },
+    [blockStart, jumpToCommit]
+  )
+
   if (error) return <div className="empty">No se pudo calcular el blame: {error}</div>
   if (lines === null) return <div className="empty">Calculando blame…</div>
   if (lines.length === 0) return <div className="empty">Archivo vacío o sin contenido rastreado.</div>
 
   return (
     <div className="diff blame">
-      {lines.map((l, i) => {
-        const uncommitted = l.hash === UNCOMMITTED
-        const isStart = blockStart.has(i)
-        return (
-          <div
-            key={i}
-            className={`diff-line blame-line${isStart ? ' block-start' : ''}`}
-            style={{ ['--blame-color' as string]: uncommitted ? 'var(--text-muted)' : colorFor(l.hash) }}
-          >
-            <span
-              className={`blame-info${uncommitted ? ' uncommitted' : ''}`}
-              title={
-                uncommitted
-                  ? 'Cambios sin commitear'
-                  : `${l.summary}\n${l.author} · ${relativeTime(l.date)}\nClic para ver el commit en el grafo`
-              }
-              onClick={() => !uncommitted && jumpToCommit(l.hash)}
-            >
-              {isStart && (
-                <>
-                  <span className="ba">{uncommitted ? 'Sin commitear' : l.author}</span>
-                  <span className="bh">{uncommitted ? '' : l.shortHash}</span>
-                  <span className="bd">{uncommitted ? '' : relativeTime(l.date)}</span>
-                </>
-              )}
-            </span>
-            <span className="gutter">{l.lineNo}</span>
-            <span className="content"> {l.text}</span>
-          </div>
-        )
-      })}
+      <LazyRows items={lines} renderRow={renderRow} />
     </div>
   )
 }

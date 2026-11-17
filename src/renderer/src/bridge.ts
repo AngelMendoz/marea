@@ -74,6 +74,7 @@ import {
   mockSubmodules,
   mockWorktrees
 } from './mockData'
+import { kindByExt, type FileInfo } from '@shared/fileKinds'
 
 export const isElectron = typeof window !== 'undefined' && !!window.api
 
@@ -336,6 +337,35 @@ export const bridge = {
         .join('\n')
     }
     return call<string>('fileContent', path, opts)
+  },
+  /** Tipo y tamaño de un archivo a cada lado del cambio (sin leerlo entero). */
+  async fileInfo(path: string, opts: { file: string; staged?: boolean; commit?: string }): Promise<FileInfo> {
+    if (!isElectron) {
+      const size = 48_213
+      return { kind: kindByExt(opts.file), old: { size, sig: 'a' }, new: { size: size + 1024, sig: 'b' } }
+    }
+    return call<FileInfo>('fileInfo', path, opts)
+  },
+  /** Bytes de una versión del archivo (vista previa de imágenes y PDF). */
+  async fileBlob(
+    path: string,
+    opts: { file: string; staged?: boolean; commit?: string },
+    side: 'old' | 'new'
+  ): Promise<Uint8Array> {
+    if (!isElectron) throw new Error('Vista previa no disponible en el navegador')
+    return call<Uint8Array>('fileBlob', path, opts, side)
+  },
+  /** Abre una versión del archivo con la aplicación predeterminada del sistema
+   *  (las de commits o del índice, desde una copia temporal). */
+  async openFileVersion(
+    path: string,
+    opts: { file: string; staged?: boolean; commit?: string },
+    side: 'old' | 'new'
+  ): Promise<void> {
+    if (!isElectron) return
+    const target = await call<string>('exportFileVersion', path, opts, side)
+    const err = (await window.api!.shell.openPath(target)) as string
+    if (err) throw new Error(err)
   },
   openInEditor(path: string, file: string): void {
     // El comando del editor externo vive en las preferencias; se lee
@@ -664,9 +694,22 @@ export const bridge = {
     if (!isElectron) return
     return call('createBranch', path, name, opts)
   },
-  async deleteBranch(path: string, name: string, force = false) {
+  async deleteBranch(
+    path: string,
+    name: string,
+    force = false,
+    opts: { switchTo?: string; deleteUpstream?: boolean } = {}
+  ) {
     if (!isElectron) return
-    return call('deleteBranch', path, name, force)
+    return call('deleteBranch', path, name, force, opts)
+  },
+  async fallbackBranch(path: string, current: string): Promise<string> {
+    if (!isElectron) return 'main'
+    return call<string>('fallbackBranch', path, current)
+  },
+  async headMessage(path: string): Promise<string> {
+    if (!isElectron) return ''
+    return call<string>('headMessage', path)
   },
   async renameBranch(path: string, oldName: string, newName: string) {
     if (!isElectron) return

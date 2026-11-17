@@ -24,8 +24,9 @@ export function Dialogs(): JSX.Element | null {
   }, [prompt])
 
   if (prompt) {
+    const empty = !prompt.optional && !value.trim()
     const submit = (): void => {
-      if (!value.trim()) return
+      if (empty) return
       prompt.onConfirm(value.trim())
       close()
     }
@@ -48,7 +49,7 @@ export function Dialogs(): JSX.Element | null {
             <button className="btn" onClick={close}>
               Cancelar
             </button>
-            <button className="btn primary inline" onClick={submit} disabled={!value.trim()}>
+            <button className="btn primary inline" onClick={submit} disabled={empty}>
               {prompt.confirmText ?? 'Aceptar'}
             </button>
           </div>

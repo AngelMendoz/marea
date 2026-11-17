@@ -32,6 +32,17 @@ describe('stash', () => {
     expect(refs.stashes).toHaveLength(0)
   })
 
+  it('stashPop con conflicto avisa (no se da por bueno) y conserva el stash', async () => {
+    const repo = await newRepo()
+    await commitFile(repo, 'a.txt', 'base\n', 'init')
+    write(repo, 'a.txt', 'stash\n')
+    await gitService.stashCreate(repo)
+    await commitFile(repo, 'a.txt', 'otro\n', 'choca')
+    await expect(gitService.stashPop(repo, 0)).rejects.toThrow(/conflictos en: a\.txt/)
+    expect((await gitService.refs(repo)).stashes).toHaveLength(1)
+    expect((await gitService.status(repo)).conflicted.map((f) => f.path)).toEqual(['a.txt'])
+  })
+
   it('stashRename del stash superior conserva el contenido con nuevo mensaje', async () => {
     const repo = await newRepo()
     await commitFile(repo, 'a.txt', 'base\n', 'init')

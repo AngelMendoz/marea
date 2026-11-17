@@ -1,4 +1,5 @@
 import { FolderGit2, LayoutGrid, Plus, Activity, X } from 'lucide-react'
+import { useState } from 'react'
 import { bridge } from '../bridge'
 import { useContextMenu } from '../contextMenu'
 import { useDialog } from '../dialog'
@@ -7,9 +8,12 @@ import { useActivityPanel } from './Activity'
 import { useWorkspacesPanel } from './Workspaces'
 
 export function RepoTabs(): JSX.Element | null {
-  const { tabs, repo, aliases, switchTab, closeTab, openRepo, setAlias } = useStore()
+  const { tabs, repo, aliases, switchTab, closeTab, moveTab, openRepo, setAlias } = useStore()
   const openMenu = useContextMenu((s) => s.openMenu)
   const { openPrompt } = useDialog()
+  // Reordenar arrastrando: pestaña arrastrada y dónde caería (antes/después de cuál).
+  const [dragPath, setDragPath] = useState<string | null>(null)
+  const [dropAt, setDropAt] = useState<{ path: string; after: boolean } | null>(null)
 
   if (tabs.length === 0) return null
 
@@ -40,9 +44,37 @@ export function RepoTabs(): JSX.Element | null {
         return (
           <div
             key={t.path}
-            className={`repo-tab${active ? ' active' : ''}`}
+            className={`repo-tab${active ? ' active' : ''}${dragPath === t.path ? ' dragging' : ''}${
+              dropAt?.path === t.path && dragPath !== t.path ? (dropAt.after ? ' drop-after' : ' drop-before') : ''
+            }`}
             onClick={() => switchTab(t.path)}
             title={t.path}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'move'
+              e.dataTransfer.setData('application/x-marea-tab', t.path)
+              setDragPath(t.path)
+            }}
+            onDragEnd={() => {
+              setDragPath(null)
+              setDropAt(null)
+            }}
+            onDragOver={(e) => {
+              if (!dragPath) return
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              const r = e.currentTarget.getBoundingClientRect()
+              const after = e.clientX > r.left + r.width / 2
+              if (dropAt?.path !== t.path || dropAt.after !== after) setDropAt({ path: t.path, after })
+            }}
+            onDrop={(e) => {
+              if (!dragPath) return
+              e.preventDefault()
+              const r = e.currentTarget.getBoundingClientRect()
+              moveTab(dragPath, t.path, e.clientX > r.left + r.width / 2)
+              setDragPath(null)
+              setDropAt(null)
+            }}
             onContextMenu={(e) => {
               e.preventDefault()
               openMenu(e.clientX, e.clientY, [

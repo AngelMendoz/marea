@@ -40,6 +40,54 @@ export function doPush(opts: PushOptions = {}): void {
   void run('Push', () => bridge.push(repo.path, opts))
 }
 
+/** ¿El último commit ya está en el remoto? (upstream sin commits por delante). */
+export function headIsPushed(): boolean {
+  const { status } = useStore.getState()
+  return !!status?.tracking && status.ahead === 0
+}
+
+/** Tras reescribir un commit ya subido, el push normal sería rechazado:
+ *  ofrece subirlo con --force-with-lease. */
+export function offerForcePushAfterRewrite(): void {
+  const { status } = useStore.getState()
+  useDialog.getState().openConfirm({
+    title: 'Subir el commit reescrito',
+    message: `El commit original ya estaba en ${status?.tracking ?? 'el remoto'}. Para reemplazarlo hay que hacer force push (con --force-with-lease, que aborta si alguien más empujó entretanto). ¿Subirlo ahora?`,
+    danger: true,
+    confirmText: 'Force push',
+    onConfirm: () => doPush({ force: true })
+  })
+}
+
+/** Cambia el mensaje del último commit (sin incluir lo preparado) y, si ya
+ *  estaba subido, ofrece el force push. */
+export async function promptRewordHead(): Promise<void> {
+  const { repo, run } = useStore.getState()
+  if (!repo) return
+  const full = await bridge.headMessage(repo.path).catch(() => '')
+  const [subject = '', ...rest] = full.replace(/\r\n/g, '\n').split('\n')
+  const body = rest.join('\n').trim()
+  useDialog.getState().openPrompt({
+    title: 'Reescribir mensaje del último commit',
+    label: body ? 'Resumen (la descripción se conserva)' : 'Mensaje',
+    defaultValue: subject,
+    confirmText: 'Reescribir',
+    onConfirm: (value) => {
+      const summary = value.trim()
+      if (!summary || summary === subject.trim()) return
+      const pushed = headIsPushed()
+      let ok = false
+      void run('Reescribir commit', async () => {
+        await bridge.commit(repo.path, body ? `${summary}\n\n${body}` : summary, {
+          amend: true,
+          messageOnly: true
+        })
+        ok = true
+      }).then(() => ok && pushed && offerForcePushAfterRewrite())
+    }
+  })
+}
+
 /** Argumentos para publicar la rama actual (sin upstream todavía). */
 export function publishArgs(extra: PushOptions = {}): PushOptions {
   const { repo, status, refs } = useStore.getState()
@@ -89,7 +137,8 @@ export function promptStash(): void {
     label: 'Mensaje (opcional)',
     placeholder: 'WIP…',
     confirmText: 'Stash',
-    onConfirm: (msg) => void run('Stash', () => bridge.stashCreate(repo.path, msg))
+    optional: true,
+    onConfirm: (msg) => void run('Stash', () => bridge.stashCreate(repo.path, msg || undefined))
   })
 }
 
