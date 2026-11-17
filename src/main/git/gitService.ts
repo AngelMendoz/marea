@@ -2,6 +2,7 @@ import { spawn } from 'child_process'
 import {
   closeSync,
   existsSync,
+  fstatSync,
   mkdtempSync,
   openSync,
   readdirSync,
@@ -704,9 +705,15 @@ export const gitService = {
     if (rev) {
       buf = await runGit(repoPath, ['cat-file', 'blob', rev], { maxBytes: maxBytes + 1 })
     } else {
-      const full = workPath(repoPath, opts.file)
-      if (statSync(full).size > maxBytes) throw new Error('Archivo demasiado grande para la vista previa')
-      buf = readFileSync(full)
+      // Tamaño y contenido del mismo descriptor: si el archivo cambia entre
+      // medias, no se lee algo distinto de lo que se comprobó.
+      const fd = openSync(workPath(repoPath, opts.file), 'r')
+      try {
+        if (fstatSync(fd).size > maxBytes) throw new Error('Archivo demasiado grande para la vista previa')
+        buf = readFileSync(fd)
+      } finally {
+        closeSync(fd)
+      }
     }
     if (buf.length > maxBytes) throw new Error('Archivo demasiado grande para la vista previa')
     return buf
