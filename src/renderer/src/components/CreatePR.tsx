@@ -101,7 +101,7 @@ export function CreatePR(): JSX.Element | null {
 
   return (
     <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={close}>
-      <div className="pr-panel" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="pr-panel pr-form" onMouseDown={(e) => e.stopPropagation()}>
         <div className="pr-head">
           <GitPullRequest size={17} color="var(--accent)" />
           <h3>Crear Pull Request</h3>
@@ -129,19 +129,23 @@ export function CreatePR(): JSX.Element | null {
           <div className="pr-repos">
             <label>
               From Repo
-              <div className="pr-static">{ownerRepo || '—'}</div>
+              <div className="pr-static" title={ownerRepo}>
+                {ownerRepo || '—'}
+              </div>
             </label>
             <ArrowRight size={16} className="pr-arrow" />
             <label>
               To Repo
-              <div className="pr-static">{ownerRepo || '—'}</div>
+              <div className="pr-static" title={ownerRepo}>
+                {ownerRepo || '—'}
+              </div>
             </label>
           </div>
 
           <div className="pr-repos">
             <label>
               Branch (desde)
-              <select value={fromBranch} onChange={(e) => setFromBranch(e.target.value)}>
+              <select value={fromBranch} title={fromBranch} onChange={(e) => setFromBranch(e.target.value)}>
                 {localNames.map((b) => (
                   <option key={b} value={b}>
                     {b}
@@ -152,7 +156,7 @@ export function CreatePR(): JSX.Element | null {
             <ArrowRight size={16} className="pr-arrow" />
             <label>
               Branch (hacia)
-              <select value={toBranch} onChange={(e) => setToBranch(e.target.value)}>
+              <select value={toBranch} title={toBranch} onChange={(e) => setToBranch(e.target.value)}>
                 {baseNames.map((b) => (
                   <option key={b} value={b}>
                     {b}
@@ -229,6 +233,9 @@ export function CreatePR(): JSX.Element | null {
         </div>
 
         <div className="pr-actions">
+          <button className="pr-continue" onClick={continueOnGitHub}>
+            <ExternalLink size={13} /> Continuar en GitHub
+          </button>
           <button className="btn" onClick={close}>
             Cancelar
           </button>
@@ -236,9 +243,6 @@ export function CreatePR(): JSX.Element | null {
             {busy ? 'Creando…' : 'Create Pull Request'}
           </button>
         </div>
-        <button className="pr-continue" onClick={continueOnGitHub}>
-          <ExternalLink size={13} /> Continuar editando en GitHub
-        </button>
       </div>
     </div>
   )

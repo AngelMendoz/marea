@@ -61,7 +61,7 @@ Comprueba:
 
 Para probar el instalador completo:
 
-1. Doble clic en `release\Marea-0.2.2-win-x64.exe`.
+1. Doble clic en `release\Marea-0.2.4-win-x64.exe`.
 2. Si SmartScreen avisa («Windows protegió tu PC»): **Más información** →
    **Ejecutar de todas formas** (el instalador no está firmado; es normal).
 3. Instala, abre Marea desde el acceso directo y prueba abrir un repositorio.
@@ -70,20 +70,20 @@ Para probar el instalador completo:
 
 Sube este archivo al release correspondiente:
 
-- `release\Marea-0.2.2-win-x64.exe`
+- `release\Marea-0.2.4-win-x64.exe`
 
 (El `.blockmap`, `latest.yml` y `builder-debug.yml` no hace falta subirlos.)
 
 ## Si cambias de versión
 
-La versión sale de `package.json` (ahora **0.2.2**). Para la siguiente,
+La versión sale de `package.json` (ahora **0.2.4**). Para la siguiente,
 actualízala sin crear tag:
 
 ```bash
-npm version 0.2.3 --no-git-tag-version
+npm version 0.2.5 --no-git-tag-version
 ```
 
-El instalador saldrá como `Marea-0.2.3-win-x64.exe` (el nombre lo arma
+El instalador saldrá como `Marea-0.2.5-win-x64.exe` (el nombre lo arma
 `artifactName` en `electron-builder.yml`).
 
 ## Detalles que ya están configurados (no hay que tocarlos)

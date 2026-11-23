@@ -782,8 +782,11 @@ textarea {
 
 /* ============ Panel derecho ============ */
 .detail-pane {
-  /* Fluido: en pantallas grandes 460px, en angostas cede hasta 280px. */
-  width: clamp(280px, 32vw, 460px);
+  /* Fluido: en pantallas grandes 460px, en angostas cede hasta 280px.
+     --detail-w fija un ancho elegido arrastrando el borde. */
+  width: var(--detail-w, clamp(280px, 32vw, 460px));
+  max-width: 60vw;
+  min-width: 0;
   background: var(--bg-panel);
   border-left: 1px solid var(--border);
   display: flex;
@@ -1690,6 +1693,11 @@ textarea {
 .pr-branches label,
 .pr-repos label {
   flex: 1;
+  /* Sin esto el ancho intrínseco del select (la rama más larga) desborda la fila. */
+  min-width: 0;
+}
+.pr-repos .pr-arrow {
+  flex-shrink: 0;
 }
 .pr-static {
   background: var(--bg-app);
@@ -1698,6 +1706,60 @@ textarea {
   padding: 8px 10px;
   font-size: 13px;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Diálogos de formulario (crear PR / issue): cabecera y pie fijos, cuerpo con
+   scroll, para que los botones nunca queden pegados al borde ni fuera de vista. */
+.pr-panel.pr-form {
+  width: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pr-form .pr-head,
+.pr-form .pr-tabs,
+.pr-form .pr-actions {
+  flex-shrink: 0;
+}
+.pr-form .pr-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 18px;
+}
+/* Misma altura para los campos de repo y de rama: la flecha queda centrada. */
+.pr-form .pr-static,
+.pr-form .pr-body select {
+  height: 36px;
+}
+.pr-form .pr-repos .pr-arrow {
+  margin-bottom: 10px;
+}
+.pr-form .pr-body select {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+  appearance: none;
+  padding-right: 30px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238499a9' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.pr-form .pr-body select option {
+  background: var(--bg-panel);
+  color: var(--text);
+}
+.pr-form .pr-actions {
+  align-items: center;
+  background: var(--bg-panel);
+}
+.pr-form .pr-actions .pr-continue {
+  margin: 0 auto 0 0;
+  padding: 4px 0;
 }
 .pr-tabs {
   display: flex;
@@ -3568,16 +3630,22 @@ textarea {
   }
 }
 
-/* Borde arrastrable del sidebar */
-.sidebar-resizer {
+/* Bordes arrastrables de los paneles laterales (sidebar y panel derecho).
+   Solapan 2px sobre el borde del panel para que la zona de agarre sea cómoda. */
+.pane-resizer {
   width: 4px;
-  margin-left: -2px;
   flex-shrink: 0;
   cursor: col-resize;
   background: transparent;
   z-index: 5;
 }
-.sidebar-resizer:hover {
+.pane-resizer.left {
+  margin-left: -2px;
+}
+.pane-resizer.right {
+  margin-right: -2px;
+}
+.pane-resizer:hover {
   background: rgba(31, 182, 214, 0.35);
 }
 

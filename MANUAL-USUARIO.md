@@ -101,7 +101,7 @@ Si alguna palabra se te escapa, al final está el [Glosario](#36-glosario).
 ### Windows (instalador `.exe`)
 
 1. Descarga el archivo **`Marea-<versión>-win-x64.exe`** (por ejemplo
-   `Marea-0.2.2-win-x64.exe`).
+   `Marea-0.2.4-win-x64.exe`).
 2. Haz **doble clic** sobre él.
 3. Si Windows muestra un aviso de seguridad («Windows protegió tu PC»), pulsa
    **«Más información»** y luego **«Ejecutar de todas formas»** (esto aparece
@@ -236,7 +236,8 @@ Cuando abres un repositorio, la ventana se organiza en estas zonas:
 - **Panel central**: normalmente el **grafo de commits**; según lo que
   selecciones, cambia a un diff, una comparación, un pull request, etc.
 - **Panel derecho**: tus **cambios sin confirmar** o el **detalle** del commit
-  que elijas.
+  que elijas. Puedes **ensancharlo o estrecharlo** arrastrando su borde
+  izquierdo y **ocultarlo** con el botón **Panel** de la barra de herramientas.
 - **Barra de estado** (abajo del todo): rama actual, contadores, ruta del repo y
   zoom.
 
@@ -253,6 +254,8 @@ De izquierda a derecha:
 - **Gitflow**: flujo de features/releases/hotfixes (sección 25).
 - **Stash** y **Pop**: guardar y recuperar cambios «en un cajón» (sección 14).
 - **Terminal**: abre una consola dentro del repo (sección 24).
+- **Panel**: muestra u oculta el panel derecho (cambios / detalle del commit).
+  Se ve resaltado mientras el panel está visible. Atajo: **Ctrl + J**.
 - **Tema**: cambia entre claro y oscuro.
 - **Ajustes**: preferencias de la aplicación (sección 28).
 
@@ -381,6 +384,13 @@ Los cambios se agrupan en tres bloques:
 Arriba a la derecha, **Path / Tree** cambia entre ver la lista de archivos plana
 o como árbol de carpetas.
 
+Si las rutas no caben, **arrastra el borde izquierdo del panel** para
+ensancharlo (el cursor cambia a ↔ al pasar por encima). Marea recuerda el ancho
+la próxima vez que abras la app; **doble clic** en ese borde lo devuelve al
+ancho por defecto. Para ganar espacio para el grafo puedes **ocultar el panel**
+con el botón **Panel** de la barra de herramientas (o **Ctrl + J**) y volver a
+mostrarlo igual.
+
 ### 9.1. Preparar (stage) y quitar
 
 «Preparar» un archivo es decir «este cambio entra en el próximo commit».
@@ -499,7 +509,10 @@ resaltada.
 ![Menú de una rama](manual-usuario/img/62-rama-menu.png)
 
 - **Checkout**: cambiarte a esa rama (también con doble clic).
-- **Merge «rama» en <actual>**: traer el trabajo de esa rama a la tuya.
+- **Merge «rama» en <actual>**: traer el trabajo de esa rama a la tuya. Igual
+  que en GitKraken, crea **siempre un commit de merge**, aunque Git pudiera
+  simplemente avanzar tu rama (*fast-forward*). Así el historial deja ver
+  cuándo se juntaron las dos ramas.
 - **Rebase** y **Rebase interactivo** (sección 18).
 - **Comparar** con la rama actual o con tu trabajo.
 - **Crear worktree** (sección 20).
@@ -514,6 +527,13 @@ resaltada.
 
 > **Arrastrar y soltar:** puedes arrastrar una rama sobre otra rama o sobre un
 > commit para hacer merge/rebase; Marea te ofrecerá las opciones al soltar.
+> Al soltar una rama sobre otra verás, entre otras:
+>
+> - **Fast-forward «destino» a «origen»**: avanza la rama destino sin crear
+>   commit de merge (solo funciona si no hay divergencia).
+> - **Merge «origen» en «destino»**: crea siempre un commit de merge, como en
+>   GitKraken.
+> - **Squash merge** y **Rebase**.
 
 ### 11.3. El «objetivo de merge»
 
@@ -803,11 +823,18 @@ Pull Request**.
 ![Crear Pull Request](manual-usuario/img/121-pr-crear.png)
 
 1. Elige el proveedor (**GitHub**).
-2. Revisa **From** (tu rama) y **To** (la rama destino).
+2. Revisa **Branch (desde)** (tu rama) y **Branch (hacia)** (la rama destino).
+   Si el nombre de una rama es muy largo se recorta con «…»; pasa el ratón por
+   encima del selector para ver el nombre completo.
 3. Escribe un **Título** y una **Descripción**.
 4. Opcional: añade **Reviewers**, **Assignees** y **Labels**; marca **borrador
    (draft)** si aún no está listo.
-5. Pulsa el botón de crear. El PR se publica en GitHub.
+5. Pulsa **Create Pull Request**. El PR se publica en GitHub.
+
+Los botones de abajo quedan siempre visibles aunque la ventana sea baja (lo que
+se desplaza es el formulario). **Continuar en GitHub**, abajo a la izquierda,
+abre la página de comparación de GitHub con las dos ramas elegidas por si
+prefieres terminar el PR en el navegador.
 
 ### 22.2. Revisar un Pull Request
 
@@ -1016,8 +1043,12 @@ a la izquierda) o desde la bienvenida.
 - **Zoom**: con **Ctrl + =** (acercar), **Ctrl + –** (alejar), **Ctrl + 0**
   (restablecer) o el control de la barra de estado.
 - **Ocultar paneles**: en *Ajustes → General*, o con **Ctrl + K** (panel
-  izquierdo) y **Ctrl + J** (panel derecho). El borde del panel izquierdo se
-  **arrastra** para cambiar su ancho.
+  izquierdo) y **Ctrl + J** (panel derecho). El panel derecho también tiene el
+  botón **Panel** en la barra de herramientas.
+- **Ancho de los paneles**: el borde de los dos paneles laterales se
+  **arrastra** para cambiar su ancho, y Marea lo recuerda. **Doble clic** en el
+  borde vuelve al ancho por defecto. El panel derecho nunca pasa del 60 % de la
+  ventana, para que el grafo siga a la vista.
 
 ---
 

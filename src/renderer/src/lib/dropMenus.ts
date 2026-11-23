@@ -31,12 +31,10 @@ export function branchOntoBranchMenu(
     },
     { divider: true },
     {
+      // Como GitKraken: «Merge» crea siempre un commit de merge (--no-ff); el
+      // fast-forward es la opción aparte de arriba.
       label: `Merge ${s} en ${t}`,
-      onClick: () => run('Merge', () => bridge.mergeInto(repo, source.ref, target.ref, 'merge'))
-    },
-    {
-      label: `Merge sin fast-forward (${s} → ${t})`,
-      onClick: () => run('Merge --no-ff', () => bridge.mergeInto(repo, source.ref, target.ref, 'noff'))
+      onClick: () => run('Merge', () => bridge.mergeInto(repo, source.ref, target.ref, 'noff'))
     },
     {
       label: `Squash merge ${s} en ${t}`,

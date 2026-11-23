@@ -76,7 +76,7 @@ export function CreateIssue(): JSX.Element | null {
 
   return (
     <div className="pr-overlay" style={{ zIndex: layer }} onMouseDown={close}>
-      <div className="pr-panel" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="pr-panel pr-form" onMouseDown={(e) => e.stopPropagation()}>
         <div className="pr-head">
           <CircleDot size={17} color="var(--accent-green)" />
           <h3>Crear Issue</h3>

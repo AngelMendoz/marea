@@ -1,6 +1,6 @@
 {
   "name": "marea",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "desktopName": "marea.desktop",
   "description": "Marea — cliente Git de escritorio con grafo de commits interactivo. Navega tu historial.",
   "author": "Pleamar Labs",

@@ -83,6 +83,8 @@ interface PersistedSettings {
   showSidebar: boolean
   showRightPanel: boolean
   sidebarWidth: number
+  /** Ancho del panel derecho (cambios / detalle de commit). 0 = fluido. */
+  detailWidth: number
   pullMode: PullMode
   /** Minutos entre auto-fetch (0 = desactivado). */
   autoFetchMinutes: number
@@ -98,6 +100,7 @@ const DEFAULTS: PersistedSettings = {
   showSidebar: true,
   showRightPanel: true,
   sidebarWidth: 0, // 0 = ancho fluido por defecto (clamp del CSS)
+  detailWidth: 0,
   pullMode: 'merge',
   autoFetchMinutes: 0,
   externalEditor: '',
@@ -129,6 +132,7 @@ function persist(s: PersistedSettings): void {
         showSidebar: s.showSidebar,
         showRightPanel: s.showRightPanel,
         sidebarWidth: s.sidebarWidth,
+        detailWidth: s.detailWidth,
         pullMode: s.pullMode,
         autoFetchMinutes: s.autoFetchMinutes,
         externalEditor: s.externalEditor,
@@ -162,6 +166,7 @@ interface SettingsState extends PersistedSettings {
   toggleSidebar: () => void
   toggleRightPanel: () => void
   setSidebarWidth: (px: number) => void
+  setDetailWidth: (px: number) => void
   setPullMode: (mode: PullMode) => void
   setAutoFetchMinutes: (min: number) => void
   setExternalEditor: (cmd: string) => void
@@ -204,6 +209,11 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
   setSidebarWidth: (px) => {
     set({ sidebarWidth: px === 0 ? 0 : Math.min(420, Math.max(170, px)) })
+    persist(get())
+  },
+  setDetailWidth: (px) => {
+    // El CSS además limita a 60vw para que el grafo nunca desaparezca.
+    set({ detailWidth: px === 0 ? 0 : Math.min(900, Math.max(260, Math.round(px))) })
     persist(get())
   },
   setPullMode: (pullMode) => {
