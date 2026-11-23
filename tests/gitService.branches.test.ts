@@ -102,6 +102,43 @@ describe('merge, rebase, cherry-pick, revert, reset', () => {
     expect(head.parents.length).toBe(2)
   })
 
+  // Mismo caso que se comprobó en GitKraken: la rama va un commit por delante y
+  // el fast-forward sería posible. «Merge» debe crear igualmente el commit de merge.
+  it('mergeInto noff crea commit de merge aunque el fast-forward sea posible', async () => {
+    const repo = await newRepo()
+    await commitFile(repo, 'a.txt', 'base', 'init')
+    const main = (await gitService.branches(repo)).current
+    await gitService.createBranch(repo, 'rama', { checkout: true })
+    await commitFile(repo, 'b.txt', 'x', 'en rama')
+    const tipRama = raw(repo, ['rev-parse', 'rama'])
+    await gitService.mergeInto(repo, 'rama', main, 'noff')
+    const head = (await gitService.logPage(repo, { all: false })).commits[0]
+    expect(head.parents.length).toBe(2)
+    expect(raw(repo, ['rev-parse', main])).not.toBe(tipRama)
+  })
+
+  it('mergeInto ff sigue avanzando la rama sin commit de merge', async () => {
+    const repo = await newRepo()
+    await commitFile(repo, 'a.txt', 'base', 'init')
+    const main = (await gitService.branches(repo)).current
+    await gitService.createBranch(repo, 'rama', { checkout: true })
+    await commitFile(repo, 'b.txt', 'x', 'en rama')
+    await gitService.mergeInto(repo, 'rama', main, 'ff')
+    expect(raw(repo, ['rev-parse', main])).toBe(raw(repo, ['rev-parse', 'rama']))
+  })
+
+  it('merge noFf desde la barra lateral crea commit de merge con fast-forward posible', async () => {
+    const repo = await newRepo()
+    await commitFile(repo, 'a.txt', 'base', 'init')
+    const main = (await gitService.branches(repo)).current
+    await gitService.createBranch(repo, 'rama', { checkout: true })
+    await commitFile(repo, 'b.txt', 'x', 'en rama')
+    await gitService.checkout(repo, main)
+    await gitService.merge(repo, 'rama', { noFf: true })
+    const head = (await gitService.logPage(repo, { all: false })).commits[0]
+    expect(head.parents.length).toBe(2)
+  })
+
   it('mergeInto squash aplica cambios sin merge de historia', async () => {
     const repo = await newRepo()
     await commitFile(repo, 'a.txt', 'base', 'init')
