@@ -892,7 +892,9 @@ const BranchRow = memo(function BranchRow({ b, depth }: { b: Branch; depth: numb
       {
         label: `Merge «${b.name}» en ${current}`,
         disabled: b.current,
-        onClick: () => run('Merge', () => bridge.merge(repo.path, b.name))
+        // Como GitKraken: el merge siempre deja un commit de merge (--no-ff),
+        // aunque se pudiera avanzar en fast-forward.
+        onClick: () => run('Merge', () => bridge.merge(repo.path, b.name, { noFf: true }))
       },
       {
         label: `Rebase ${current} sobre «${b.name}»`,

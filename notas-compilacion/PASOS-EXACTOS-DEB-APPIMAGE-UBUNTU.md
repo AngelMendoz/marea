@@ -62,8 +62,8 @@ ls -lh release/Marea-*-linux-*
 
 Resultado:
 
-- `release/Marea-0.2.2-linux-amd64.deb` (~100 MB)
-- `release/Marea-0.2.2-linux-x86_64.AppImage` (~130 MB)
+- `release/Marea-0.2.4-linux-amd64.deb` (~100 MB)
+- `release/Marea-0.2.4-linux-x86_64.AppImage` (~130 MB)
 
 En el log debe aparecer `preparing moduleName=node-pty` y
 `finished moduleName=node-pty`. Comprobación rápida de que el `.deb` lleva el
@@ -83,7 +83,7 @@ cp ~/marea/release/Marea-*-linux-* /mnt/c/ruta/a/marea/release/
 
 ```bash
 cd ~/marea/release
-sudo apt install ./Marea-0.2.2-linux-amd64.deb
+sudo apt install ./Marea-0.2.4-linux-amd64.deb
 marea
 ```
 
@@ -100,8 +100,8 @@ marea
 
 ```bash
 cd ~/marea/release
-chmod +x Marea-0.2.2-linux-x86_64.AppImage
-./Marea-0.2.2-linux-x86_64.AppImage
+chmod +x Marea-0.2.4-linux-x86_64.AppImage
+./Marea-0.2.4-linux-x86_64.AppImage
 ```
 
 - `dlopen(): error loading libfuse.so.2` → falta FUSE 2:
@@ -110,7 +110,7 @@ chmod +x Marea-0.2.2-linux-x86_64.AppImage
   AppImage de Electron puede cerrarse con
   `The SUID sandbox helper binary was found, but is not configured correctly`.
   El AppImage no instala perfil de AppArmor (el `.deb` sí). Soluciones: usar
-  el `.deb`, o lanzar con `./Marea-0.2.2-linux-x86_64.AppImage --no-sandbox`.
+  el `.deb`, o lanzar con `./Marea-0.2.4-linux-x86_64.AppImage --no-sandbox`.
   En WSL no pasa (su kernel no activa AppArmor), así que esto **no** se ha
   podido comprobar aquí.
 

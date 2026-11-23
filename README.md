@@ -173,8 +173,10 @@ npx electron-builder --linux -c.npmRebuild=true
 - **Firmas GPG/SSH** (insignia de verificación por commit), hooks,
   **Gitflow** y **Bisect** visuales, **Git LFS**.
 - **Cuentas** multiproveedor cifradas con `safeStorage` del sistema.
-- **Preferencias**: tema claro/oscuro, zoom, paneles, **atajos reasignables**,
+- **Preferencias**: tema claro/oscuro, zoom, **atajos reasignables**,
   git config global/local, elegir ejecutable de git.
+- **Paneles laterales** redimensionables con el ratón (el ancho se recuerda) y
+  ocultables desde la barra de herramientas o con atajo.
 
 ### Ideas futuras
 

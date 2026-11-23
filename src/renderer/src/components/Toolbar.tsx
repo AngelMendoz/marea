@@ -4,6 +4,8 @@ import {
   ChevronDown,
   GitBranchPlus,
   Moon,
+  PanelRightClose,
+  PanelRightOpen,
   RefreshCw,
   Archive,
   PackageOpen,
@@ -39,6 +41,9 @@ export function Toolbar(): JSX.Element {
   const busy = useStore((s) => s.busy)
   const toggleTheme = useStore((s) => s.toggleTheme)
   const pullMode = useSettings((s) => s.pullMode)
+  const showRightPanel = useSettings((s) => s.showRightPanel)
+  const toggleRightPanel = useSettings((s) => s.toggleRightPanel)
+  const rightPanelShortcut = useSettings((s) => s.shortcuts.toggleRightPanel)
   const { openConfirm } = useDialog()
   const openMenu = useContextMenu((s) => s.openMenu)
   const openGitflow = useGitflowPanel((s) => s.openPanel)
@@ -212,6 +217,14 @@ export function Toolbar(): JSX.Element {
 
       <div className="spacer" style={{ flex: 1 }} />
 
+      <button
+        className={`tool-btn${showRightPanel ? ' active' : ''}`}
+        title={`${showRightPanel ? 'Ocultar' : 'Mostrar'} el panel de cambios${rightPanelShortcut ? ` (${rightPanelShortcut})` : ''}`}
+        onClick={toggleRightPanel}
+      >
+        {showRightPanel ? <PanelRightClose /> : <PanelRightOpen />}
+        <span className="tb-label">Panel</span>
+      </button>
       <button className="tool-btn" title="Cambiar tema" onClick={toggleTheme}>
         {theme === 'dark' ? <Sun /> : <Moon />}
         <span className="tb-label">Tema</span>
