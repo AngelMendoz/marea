@@ -33,9 +33,10 @@ import { applyStartupSettings, useSettings } from './settings'
 import { useShortcuts } from './shortcuts'
 import { useStore } from './store'
 
-/** Borde arrastrable del sidebar: redimensiona y persiste el ancho. */
-function SidebarResizer(): JSX.Element {
-  const setSidebarWidth = useSettings((s) => s.setSidebarWidth)
+/** Borde arrastrable de un panel lateral: redimensiona y persiste el ancho.
+ *  `left` = sidebar de ramas; `right` = panel de cambios / detalle de commit. */
+function PaneResizer({ side }: { side: 'left' | 'right' }): JSX.Element {
+  const setWidth = useSettings((s) => (side === 'left' ? s.setSidebarWidth : s.setDetailWidth))
   const dragging = useRef(false)
 
   const onMouseDown = useCallback(
@@ -44,7 +45,10 @@ function SidebarResizer(): JSX.Element {
       dragging.current = true
       document.body.style.cursor = 'col-resize'
       const onMove = (ev: MouseEvent): void => {
-        if (dragging.current) setSidebarWidth(ev.clientX)
+        if (!dragging.current) return
+        if (side === 'left') setWidth(ev.clientX)
+        // Panel derecho: tope del 60% de la ventana (igual que el max-width del CSS).
+        else setWidth(Math.min(window.innerWidth - ev.clientX, window.innerWidth * 0.6))
       }
       const onUp = (): void => {
         dragging.current = false
@@ -55,15 +59,15 @@ function SidebarResizer(): JSX.Element {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [setSidebarWidth]
+    [side, setWidth]
   )
 
   return (
     <div
-      className="sidebar-resizer"
+      className={`pane-resizer ${side}`}
       title="Arrastra para redimensionar (doble clic: ancho por defecto)"
       onMouseDown={onMouseDown}
-      onDoubleClick={() => setSidebarWidth(0)}
+      onDoubleClick={() => setWidth(0)}
     />
   )
 }
@@ -82,6 +86,7 @@ export default function App(): JSX.Element {
   const showSidebar = useSettings((s) => s.showSidebar)
   const showRightPanel = useSettings((s) => s.showRightPanel)
   const sidebarWidth = useSettings((s) => s.sidebarWidth)
+  const detailWidth = useSettings((s) => s.detailWidth)
   const autoFetchMinutes = useSettings((s) => s.autoFetchMinutes)
 
   // Atajos de teclado configurables.
@@ -127,7 +132,12 @@ export default function App(): JSX.Element {
       <OperationBanner />
       <div
         className="app-body"
-        style={sidebarWidth > 0 ? ({ '--sidebar-w': `${sidebarWidth}px` } as React.CSSProperties) : undefined}
+        style={
+          {
+            ...(sidebarWidth > 0 && { '--sidebar-w': `${sidebarWidth}px` }),
+            ...(detailWidth > 0 && { '--detail-w': `${detailWidth}px` })
+          } as React.CSSProperties
+        }
       >
         {!repo ? (
           <WelcomeView />
@@ -136,7 +146,7 @@ export default function App(): JSX.Element {
             {showSidebar && (
               <>
                 <Sidebar />
-                <SidebarResizer />
+                <PaneResizer side="left" />
               </>
             )}
             {centerView?.kind === 'pr' ? (
@@ -154,8 +164,12 @@ export default function App(): JSX.Element {
             ) : (
               <GraphView />
             )}
-            {showRightPanel &&
-              (selection?.kind === 'commit' ? <CommitDetail hash={selection.hash} /> : <StagingPanel />)}
+            {showRightPanel && (
+              <>
+                <PaneResizer side="right" />
+                {selection?.kind === 'commit' ? <CommitDetail hash={selection.hash} /> : <StagingPanel />}
+              </>
+            )}
           </>
         )}
       </div>
