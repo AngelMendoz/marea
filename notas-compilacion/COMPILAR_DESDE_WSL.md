@@ -18,8 +18,8 @@ los binarios desde Windows con WSL.
 
 La compilación final quedó correcta. Se generaron estos artefactos en `release/`:
 
-- `Marea-0.2.2-linux-x86_64.AppImage`
-- `Marea-0.2.2-linux-amd64.deb`
+- `Marea-0.2.4-linux-x86_64.AppImage`
+- `Marea-0.2.4-linux-amd64.deb`
 
 El problema principal no era Ubuntu, sino el empaquetado de `node-pty` y una
 configuración de `electron-builder` que necesitaba ajustes para Linux.
@@ -152,8 +152,8 @@ sudo apt autoremove --purge
 ### Ejecutar el AppImage
 
 ```bash
-chmod +x Marea-0.2.2-linux-x86_64.AppImage
-./Marea-0.2.2-linux-x86_64.AppImage
+chmod +x Marea-0.2.4-linux-x86_64.AppImage
+./Marea-0.2.4-linux-x86_64.AppImage
 ```
 
 Si falta FUSE:
